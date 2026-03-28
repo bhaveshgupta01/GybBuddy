@@ -53,7 +53,7 @@ export default function TabLayout() {
         name="training"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🎯" focused={focused} />
+            <TabIcon emoji="🐺" focused={focused} />
           ),
         }}
       />
