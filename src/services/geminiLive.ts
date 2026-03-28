@@ -323,14 +323,16 @@ export async function startMicrophone(): Promise<void> {
     const { granted } = await Audio.requestPermissionsAsync();
     if (!granted) { onError?.('Mic permission denied'); return; }
 
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-
-    const { recording: rec } = await Audio.Recording.createAsync({
-      isMeteringEnabled: false,
-      android: { extension: '.wav', outputFormat: 3, audioEncoder: 2, sampleRate: 16000, numberOfChannels: 1, bitRate: 256000 },
-      ios: { extension: '.wav', outputFormat: 6, audioQuality: 127, sampleRate: 16000, numberOfChannels: 1, bitRate: 256000, linearPCMBitDepth: 16, linearPCMIsBigEndian: false, linearPCMIsFloat: false },
-      web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
     });
+
+    // Use HIGH_QUALITY preset then override — avoids iOS format errors
+    const { recording: rec } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.HIGH_QUALITY
+    );
 
     recording = rec;
     console.log('[GeminiLive] Microphone started');
@@ -342,36 +344,85 @@ export async function startMicrophone(): Promise<void> {
 }
 
 let streamInterval: ReturnType<typeof setInterval> | null = null;
-let lastSize = 0;
+let isRecording = false;
 
+/**
+ * Chunked recording: record 2-second clips, send each to Gemini, repeat.
+ * This avoids iOS file-locking issues with reading partial recordings.
+ */
 function startAudioStreaming(): void {
   stopAudioStreaming();
-  streamInterval = setInterval(async () => {
-    if (!recording || !ws || !isConnected || !isSetupComplete) return;
-    try {
-      const uri = recording.getURI();
-      if (!uri) return;
-      const info = await FileSystem.getInfoAsync(uri);
-      if (!info.exists || !('size' in info) || info.size <= lastSize) return;
+  isRecording = true;
 
-      const data = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      if (data) {
-        ws.send(JSON.stringify({ realtimeInput: { audio: { data, mimeType: 'audio/pcm;rate=16000' } } }));
-        lastSize = info.size;
+  const recordAndSendChunk = async () => {
+    if (!isRecording || !ws || !isConnected || !isSetupComplete) return;
+
+    try {
+      // Stop current recording to get the file
+      if (recording) {
+        const uri = recording.getURI();
+        await recording.stopAndUnloadAsync();
+
+        // Read and send the recorded chunk
+        if (uri) {
+          const data = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+          if (data && data.length > 100) {
+            ws!.send(JSON.stringify({
+              realtimeInput: {
+                audio: { data, mimeType: 'audio/mp4' },
+              },
+            }));
+          }
+          // Clean up temp file
+          try { await FileSystem.deleteAsync(uri, { idempotent: true }); } catch {}
+        }
+        recording = null;
       }
-    } catch {}
-  }, 250);
+
+      // Start a new recording chunk (if still active)
+      if (!isRecording) return;
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording: newRec } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      recording = newRec;
+
+      // Wait 2 seconds then send this chunk and start next
+      streamInterval = setTimeout(recordAndSendChunk, 2000) as any;
+    } catch (error) {
+      console.warn('[GeminiLive] Chunk recording error:', error);
+      // Try again after a brief delay
+      if (isRecording) {
+        streamInterval = setTimeout(recordAndSendChunk, 1000) as any;
+      }
+    }
+  };
+
+  // Start first chunk after a tiny delay
+  streamInterval = setTimeout(recordAndSendChunk, 500) as any;
 }
 
 function stopAudioStreaming(): void {
-  if (streamInterval) { clearInterval(streamInterval); streamInterval = null; }
-  lastSize = 0;
+  isRecording = false;
+  if (streamInterval) { clearTimeout(streamInterval as any); streamInterval = null; }
 }
 
 export async function stopMicrophone(): Promise<void> {
   stopAudioStreaming();
   if (recording) {
-    try { await recording.stopAndUnloadAsync(); } catch {}
+    try {
+      // Send the final chunk
+      const uri = recording.getURI();
+      await recording.stopAndUnloadAsync();
+      if (uri && ws && isConnected && isSetupComplete) {
+        const data = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        if (data && data.length > 100) {
+          ws.send(JSON.stringify({ realtimeInput: { audio: { data, mimeType: 'audio/mp4' } } }));
+        }
+        try { await FileSystem.deleteAsync(uri, { idempotent: true }); } catch {}
+      }
+    } catch {}
     recording = null;
   }
 }
