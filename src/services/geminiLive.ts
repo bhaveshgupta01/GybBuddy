@@ -128,7 +128,7 @@ export function connectLive(
     // Send setup message
     const setup = {
       setup: {
-        model: 'models/gemini-2.5-flash-preview-native-audio-dialog',
+        model: 'models/gemini-2.5-flash-native-audio-latest',
         generationConfig: {
           responseModalities: ['AUDIO'],
           temperature: 0.8,
@@ -144,6 +144,8 @@ export function connectLive(
           parts: [{ text: systemPrompt }],
         },
         tools: [{ functionDeclarations: GEMINI_TOOLS }],
+        outputAudioTranscription: {},
+        inputAudioTranscription: {},
         realtimeInputConfig: {
           automaticActivityDetection: {
             startOfSpeechSensitivity: 'HIGH',
@@ -185,13 +187,11 @@ export function connectLive(
       if (data.serverContent) {
         const content = data.serverContent;
 
-        // Handle audio parts
+        // Handle audio parts — collect chunks
         if (content.modelTurn?.parts) {
           for (const part of content.modelTurn.parts) {
             if (part.inlineData?.data) {
-              // Queue audio for playback
               audioQueue.push(part.inlineData.data);
-              playNextAudio();
             }
             if (part.text) {
               onTranscript?.(part.text, 'assistant');
@@ -199,14 +199,23 @@ export function connectLive(
           }
         }
 
+        // Turn complete — play all collected audio
+        if (content.turnComplete) {
+          if (audioQueue.length > 0) {
+            playNextAudio();
+          }
+        }
+
         // Output transcription (what Gemini said as text)
         if (content.outputTranscription?.text) {
-          onTranscript?.(content.outputTranscription.text, 'assistant');
+          const text = content.outputTranscription.text.trim();
+          if (text) onTranscript?.(text, 'assistant');
         }
 
         // Input transcription (what user said as text)
         if (content.inputTranscription?.text) {
-          onTranscript?.(content.inputTranscription.text, 'user');
+          const text = content.inputTranscription.text.trim();
+          if (text) onTranscript?.(text, 'user');
         }
 
         // Model interrupted by user (barge-in)
