@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { Colors, FontSize, Spacing, BorderRadius, GlassCard } from '../../src/constants/theme';
 import { generatePersona, UserPersona, DEFAULT_PERSONA } from '../../src/services/persona';
+import { getProfile, ProfileStats } from '../../src/services/storage';
+import { formatDistance } from '../../src/utils/pace';
 
 export default function ProfileScreen() {
   const [persona, setPersona] = useState<UserPersona>(DEFAULT_PERSONA);
+  const [profileStats, setProfileStats] = useState<ProfileStats>({ totalRuns: 0, totalDistance: 0, totalDuration: 0, lastRunDate: null });
+
+  useFocusEffect(
+    React.useCallback(() => {
+      getProfile().then(setProfileStats);
+    }, [])
+  );
   const [generating, setGenerating] = useState(false);
 
-  // Mock user data — in production this comes from Firestore
-  const totalRuns = 0;
-  const totalDistance = 0;
-  const avgPace = 0;
+  const totalRuns = profileStats.totalRuns;
+  const totalDistance = profileStats.totalDistance;
+  const avgPace = profileStats.totalDuration > 0 ? profileStats.totalDuration / (profileStats.totalDistance / 1000) : 0;
   const currentStreak = 0;
 
   const handleGeneratePersona = async () => {
@@ -25,6 +34,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
       <View style={styles.header}>
         <Text style={styles.label}>YOU</Text>
         <Text style={styles.title}>Profile</Text>
@@ -52,10 +62,10 @@ export default function ProfileScreen() {
 
       {/* Stats grid */}
       <View style={styles.statsGrid}>
-        <StatCard value="0" label="Runs" />
-        <StatCard value="0 km" label="Distance" />
-        <StatCard value="0" label="Streak" />
-        <StatCard value="1" label="Level" />
+        <StatCard value={`${totalRuns}`} label="Runs" />
+        <StatCard value={formatDistance(totalDistance)} label="Distance" />
+        <StatCard value={`${currentStreak}`} label="Streak" />
+        <StatCard value={`${Math.floor(totalRuns / 3) + 1}`} label="Level" />
       </View>
 
       {/* Achievements */}
@@ -75,6 +85,7 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 16, opacity: 0.3 }}>🔒</Text>
         </View>
       ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }

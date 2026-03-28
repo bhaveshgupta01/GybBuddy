@@ -25,6 +25,7 @@ import { CharacterId, SportMode, PlannedRoute } from '../../src/types';
 import { formatPace, formatDuration, formatDistance } from '../../src/utils/pace';
 import { haversineDistance } from '../../src/utils/distance';
 import { Colors, FontSize, Spacing, BorderRadius, GlassCard } from '../../src/constants/theme';
+import { saveRun } from '../../src/services/storage';
 
 export default function ActiveRunScreen() {
   const params = useLocalSearchParams<{
@@ -176,8 +177,9 @@ export default function ActiveRunScreen() {
   const handleSendChat = () => {
     if (chatInput.trim()) { sendTextMessage(chatInput.trim()); setChatInput(''); setShowChatInput(false); }
   };
-  const handleFinish = () => {
+  const handleFinish = async () => {
     finishRun();
+    await saveRun(stats, sportMode, characterId);
     liveSendText(`[RUN COMPLETE] ${formatDistance(stats.distance)}, ${formatDuration(stats.duration)}, Avg ${formatPace(stats.averagePace)}/km. Give a fun debrief!`);
   };
 
