@@ -223,7 +223,7 @@ export function connectLive(
 }
 
 function getVoiceForCharacter(characterId: CharacterId): string {
-  return { drill: 'Orus', chill: 'Vale', hype: 'Zephyr', sensei: 'Puck' }[characterId];
+  return { drill: 'Orus', chill: 'Aoede', hype: 'Zephyr', sensei: 'Puck' }[characterId];
 }
 
 async function handleToolCall(toolCall: any): Promise<void> {
