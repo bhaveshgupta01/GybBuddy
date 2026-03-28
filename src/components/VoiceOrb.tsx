@@ -11,66 +11,37 @@ interface VoiceOrbProps {
 
 export function VoiceOrb({ state, latestMessage, onPress }: VoiceOrbProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0.3)).current;
+  const glowAnim = useRef(new Animated.Value(0.2)).current;
 
   useEffect(() => {
     if (state === 'speaking' || state === 'listening') {
-      // Pulsing animation
       const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
         ])
       );
       const glow = Animated.loop(
         Animated.sequence([
-          Animated.timing(glowAnim, {
-            toValue: 0.8,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.3,
-            duration: 600,
-            useNativeDriver: true,
-          }),
+          Animated.timing(glowAnim, { toValue: 0.5, duration: 800, useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 0.2, duration: 800, useNativeDriver: true }),
         ])
       );
       pulse.start();
       glow.start();
-      return () => {
-        pulse.stop();
-        glow.stop();
-      };
+      return () => { pulse.stop(); glow.stop(); };
     } else if (state === 'thinking') {
-      // Faster pulse for thinking
       const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 0.9,
-            duration: 300,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, { toValue: 1.08, duration: 400, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 0.95, duration: 400, useNativeDriver: true }),
         ])
       );
       pulse.start();
       return () => pulse.stop();
     } else {
       pulseAnim.setValue(1);
-      glowAnim.setValue(0.3);
+      glowAnim.setValue(0.2);
     }
   }, [state, pulseAnim, glowAnim]);
 
@@ -82,7 +53,7 @@ export function VoiceOrb({ state, latestMessage, onPress }: VoiceOrbProps) {
   }[state];
 
   const statusText = {
-    idle: 'Tap to talk',
+    idle: 'Tap to speak',
     listening: 'Listening...',
     thinking: 'Thinking...',
     speaking: 'Speaking...',
@@ -90,17 +61,10 @@ export function VoiceOrb({ state, latestMessage, onPress }: VoiceOrbProps) {
 
   return (
     <View style={styles.container}>
-      {/* Transcript */}
+      {/* Transcript bubble */}
       {latestMessage && (
-        <View style={styles.transcriptContainer}>
-          <Text
-            style={[
-              styles.transcript,
-              latestMessage.role === 'user' && styles.transcriptUser,
-            ]}
-            numberOfLines={2}
-          >
-            {latestMessage.role === 'user' ? '🎤 ' : '🤖 '}
+        <View style={styles.transcriptBubble}>
+          <Text style={styles.transcript} numberOfLines={2}>
             {latestMessage.content}
           </Text>
         </View>
@@ -110,11 +74,11 @@ export function VoiceOrb({ state, latestMessage, onPress }: VoiceOrbProps) {
       <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
         <Animated.View
           style={[
-            styles.orbOuter,
+            styles.orbGlow,
             {
               opacity: glowAnim,
               backgroundColor: orbColor,
-              transform: [{ scale: Animated.multiply(pulseAnim, 1.3) }],
+              transform: [{ scale: Animated.multiply(pulseAnim, 1.4) }],
             },
           ]}
         />
@@ -128,7 +92,7 @@ export function VoiceOrb({ state, latestMessage, onPress }: VoiceOrbProps) {
           ]}
         >
           <Text style={styles.orbIcon}>
-            {state === 'idle' ? '🎙️' : state === 'listening' ? '👂' : state === 'thinking' ? '💭' : '🗣️'}
+            {state === 'idle' ? '🎙' : state === 'listening' ? '👂' : state === 'thinking' ? '✦' : '♪'}
           </Text>
         </Animated.View>
       </TouchableOpacity>
@@ -138,37 +102,36 @@ export function VoiceOrb({ state, latestMessage, onPress }: VoiceOrbProps) {
   );
 }
 
-const ORB_SIZE = 72;
+const ORB_SIZE = 64;
 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: Spacing.md,
   },
-  transcriptContainer: {
-    backgroundColor: Colors.surface,
+  transcriptBubble: {
+    backgroundColor: Colors.glassStrong,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     marginBottom: Spacing.md,
-    marginHorizontal: Spacing.lg,
-    maxWidth: '90%',
+    maxWidth: '85%',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   transcript: {
     color: Colors.textSecondary,
     fontSize: FontSize.sm,
     textAlign: 'center',
+    lineHeight: 18,
   },
-  transcriptUser: {
-    color: Colors.primary,
-  },
-  orbOuter: {
+  orbGlow: {
     position: 'absolute',
-    width: ORB_SIZE + 20,
-    height: ORB_SIZE + 20,
-    borderRadius: (ORB_SIZE + 20) / 2,
-    top: -10,
-    left: -10,
+    width: ORB_SIZE + 24,
+    height: ORB_SIZE + 24,
+    borderRadius: (ORB_SIZE + 24) / 2,
+    top: -12,
+    left: -12,
   },
   orb: {
     width: ORB_SIZE,
@@ -176,18 +139,20 @@ const styles = StyleSheet.create({
     borderRadius: ORB_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: Colors.primaryMint,
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 16,
     elevation: 8,
   },
   orbIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   statusText: {
     color: Colors.textMuted,
     fontSize: FontSize.xs,
+    fontWeight: '500',
     marginTop: Spacing.sm,
+    letterSpacing: 0.5,
   },
 });

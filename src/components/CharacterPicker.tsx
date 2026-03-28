@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { CharacterId } from '../types';
 import { CHARACTER_LIST } from '../constants/characters';
-import { Colors, FontSize, Spacing, BorderRadius } from '../constants/theme';
+import { Colors, FontSize, Spacing, BorderRadius, GlassCard } from '../constants/theme';
 
 interface CharacterPickerProps {
   selected: CharacterId;
@@ -18,27 +18,30 @@ export function CharacterPicker({ selected, onSelect }: CharacterPickerProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {CHARACTER_LIST.map((char) => (
-          <TouchableOpacity
-            key={char.id}
-            style={[
-              styles.card,
-              selected === char.id && { borderColor: char.color, borderWidth: 2 },
-            ]}
-            onPress={() => onSelect(char.id)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.avatar}>{char.avatar}</Text>
-            <Text style={styles.name}>{char.name}</Text>
-            <Text style={styles.subtitle}>{char.subtitle}</Text>
-            <Text style={styles.quote}>"{char.sampleQuote}"</Text>
-            {selected === char.id && (
-              <View style={[styles.selectedBadge, { backgroundColor: char.color }]}>
-                <Text style={styles.selectedText}>Selected</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
+        {CHARACTER_LIST.map((char) => {
+          const isSelected = selected === char.id;
+          return (
+            <TouchableOpacity
+              key={char.id}
+              style={[
+                styles.card,
+                isSelected && styles.cardSelected,
+              ]}
+              onPress={() => onSelect(char.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.avatar}>{char.avatar}</Text>
+              <Text style={styles.name}>{char.name}</Text>
+              <Text style={styles.subtitle}>{char.subtitle}</Text>
+              <Text style={styles.quote}>"{char.sampleQuote}"</Text>
+              {isSelected && (
+                <View style={styles.selectedBadge}>
+                  <Text style={styles.selectedText}>Active</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -50,8 +53,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: Colors.text,
-    fontSize: FontSize.lg,
-    fontWeight: '700',
+    fontSize: FontSize.xl,
+    fontWeight: '300',
+    letterSpacing: -0.5,
     marginBottom: Spacing.md,
     marginLeft: Spacing.md,
   },
@@ -60,21 +64,24 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    ...GlassCard,
     padding: Spacing.md,
-    width: 180,
-    borderWidth: 1,
-    borderColor: Colors.surfaceLight,
+    width: 170,
+  },
+  cardSelected: {
+    backgroundColor: Colors.glassStrong,
+    borderColor: Colors.primaryMint,
+    borderWidth: 2,
   },
   avatar: {
-    fontSize: 40,
+    fontSize: 36,
     marginBottom: Spacing.sm,
   },
   name: {
     color: Colors.text,
     fontSize: FontSize.lg,
-    fontWeight: '700',
+    fontWeight: '500',
+    letterSpacing: -0.3,
     marginBottom: 2,
   },
   subtitle: {
@@ -92,12 +99,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Spacing.sm,
     right: Spacing.sm,
+    backgroundColor: Colors.primaryMint,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.round,
   },
   selectedText: {
-    color: Colors.text,
+    color: Colors.textOnPrimary,
     fontSize: 10,
     fontWeight: '700',
   },

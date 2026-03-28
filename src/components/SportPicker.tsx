@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SportMode } from '../types';
-import { Colors, FontSize, Spacing, BorderRadius } from '../constants/theme';
+import { Colors, FontSize, Spacing, BorderRadius, GlassCard } from '../constants/theme';
 
 interface SportPickerProps {
   selected: SportMode;
@@ -16,27 +16,22 @@ const MODES: { id: SportMode; label: string; emoji: string }[] = [
 export function SportPicker({ selected, onSelect }: SportPickerProps) {
   return (
     <View style={styles.container}>
-      {MODES.map((mode) => (
-        <TouchableOpacity
-          key={mode.id}
-          style={[
-            styles.option,
-            selected === mode.id && styles.optionSelected,
-          ]}
-          onPress={() => onSelect(mode.id)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.emoji}>{mode.emoji}</Text>
-          <Text
-            style={[
-              styles.label,
-              selected === mode.id && styles.labelSelected,
-            ]}
+      {MODES.map((mode) => {
+        const isSelected = selected === mode.id;
+        return (
+          <TouchableOpacity
+            key={mode.id}
+            style={[styles.option, isSelected && styles.optionSelected]}
+            onPress={() => onSelect(mode.id)}
+            activeOpacity={0.7}
           >
-            {mode.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+            <Text style={styles.emoji}>{mode.emoji}</Text>
+            <Text style={[styles.label, isSelected && styles.labelSelected]}>
+              {mode.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -50,17 +45,15 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    ...GlassCard,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.surfaceLight,
     gap: Spacing.sm,
   },
   optionSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryDark + '30',
+    backgroundColor: Colors.glassStrong,
+    borderColor: Colors.primaryMint,
+    borderWidth: 2,
   },
   emoji: {
     fontSize: FontSize.xl,
@@ -68,9 +61,11 @@ const styles = StyleSheet.create({
   label: {
     color: Colors.textSecondary,
     fontSize: FontSize.lg,
-    fontWeight: '600',
+    fontWeight: '500',
+    letterSpacing: -0.3,
   },
   labelSelected: {
-    color: Colors.text,
+    color: Colors.primary,
+    fontWeight: '600',
   },
 });

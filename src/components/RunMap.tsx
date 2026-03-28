@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GpsPoint, PlannedRoute } from '../types';
-import { Colors } from '../constants/theme';
+import { Colors, BorderRadius, Spacing, FontSize } from '../constants/theme';
 
 interface RunMapProps {
   currentLocation: GpsPoint | null;
@@ -14,7 +14,6 @@ interface RunMapProps {
 export function RunMap({ currentLocation, breadcrumbs, route, showMap = true }: RunMapProps) {
   const mapRef = useRef<MapView>(null);
 
-  // Follow user location
   useEffect(() => {
     if (currentLocation && mapRef.current) {
       mapRef.current.animateToRegion(
@@ -32,7 +31,8 @@ export function RunMap({ currentLocation, breadcrumbs, route, showMap = true }: 
   if (!showMap || !currentLocation) {
     return (
       <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>📍 Acquiring GPS...</Text>
+        <Text style={styles.placeholderIcon}>📍</Text>
+        <Text style={styles.placeholderText}>Acquiring GPS...</Text>
       </View>
     );
   }
@@ -57,13 +57,13 @@ export function RunMap({ currentLocation, breadcrumbs, route, showMap = true }: 
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
-        customMapStyle={darkMapStyle}
+        customMapStyle={lightMapStyle}
       >
         {/* Planned route */}
         {route && route.polyline.length > 0 && (
           <Polyline
             coordinates={route.polyline}
-            strokeColor={Colors.routePlanned}
+            strokeColor={Colors.primaryMint}
             strokeWidth={4}
             lineDashPattern={[10, 5]}
           />
@@ -73,7 +73,7 @@ export function RunMap({ currentLocation, breadcrumbs, route, showMap = true }: 
         {breadcrumbCoords.length > 1 && (
           <Polyline
             coordinates={breadcrumbCoords}
-            strokeColor={Colors.routeCompleted}
+            strokeColor={Colors.primary}
             strokeWidth={5}
           />
         )}
@@ -88,7 +88,7 @@ export function RunMap({ currentLocation, breadcrumbs, route, showMap = true }: 
             title="Start"
           >
             <View style={styles.startMarker}>
-              <Text style={styles.markerText}>🟢</Text>
+              <View style={styles.startDot} />
             </View>
           </Marker>
         )}
@@ -97,62 +97,55 @@ export function RunMap({ currentLocation, breadcrumbs, route, showMap = true }: 
   );
 }
 
-// Dark map style for the fitness theme
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
-  {
-    featureType: 'road',
-    elementType: 'geometry',
-    stylers: [{ color: '#38414e' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#212a37' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry',
-    stylers: [{ color: '#746855' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'geometry',
-    stylers: [{ color: '#17263c' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#263c3f' }],
-  },
+// Light, soft map style matching the ethereal aesthetic
+const lightMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#e8e8e8' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9e7f2' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#d4ecd6' }] },
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
 ];
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: BorderRadius.md,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   map: {
     flex: 1,
   },
   placeholder: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceLow,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: BorderRadius.md,
+  },
+  placeholderIcon: {
+    fontSize: 32,
+    marginBottom: Spacing.sm,
   },
   placeholderText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
+    color: Colors.textMuted,
+    fontSize: FontSize.md,
+    fontWeight: '300',
   },
   startMarker: {
-    padding: 2,
+    padding: 4,
   },
-  markerText: {
-    fontSize: 16,
+  startDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Colors.primary,
+    borderWidth: 3,
+    borderColor: Colors.surfaceLowest,
   },
 });

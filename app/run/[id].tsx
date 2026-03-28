@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import { findNearbyPlaces, getWeather, getDirections, generateShapeWaypoints } f
 import { CharacterId, SportMode, PlannedRoute } from '../../src/types';
 import { formatPace, formatDuration, formatDistance } from '../../src/utils/pace';
 import { haversineDistance } from '../../src/utils/distance';
-import { Colors, FontSize, Spacing, BorderRadius } from '../../src/constants/theme';
+import { Colors, FontSize, Spacing, BorderRadius, GlassCard } from '../../src/constants/theme';
 
 export default function ActiveRunScreen() {
   const params = useLocalSearchParams<{
@@ -32,6 +32,9 @@ export default function ActiveRunScreen() {
     character: string;
     sport: string;
     targetPace: string;
+    routeShape: string;
+    routeDistance: string;
+    routeMood: string;
   }>();
   const router = useRouter();
 
@@ -73,40 +76,24 @@ export default function ActiveRunScreen() {
     currentLocation,
   });
 
-  // Off-route detection + rerouting
+  // Off-route detection
   useEffect(() => {
     if (!currentLocation || !plannedRoute || runState !== 'active') return;
-
-    // Check if runner is off-route (>50m from nearest polyline point)
     const minDist = plannedRoute.polyline.reduce((min, point) => {
-      const dist = haversineDistance(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        point.latitude,
-        point.longitude
-      );
+      const dist = haversineDistance(currentLocation.latitude, currentLocation.longitude, point.latitude, point.longitude);
       return Math.min(min, dist);
     }, Infinity);
-
     if (minDist > 50) {
-      // Send reroute suggestion via voice
-      liveSendText(
-        `[REROUTE ALERT: Runner is ${Math.round(minDist)}m off the planned route. ` +
-        `Ask them if they want to be rerouted back, or if they want to freestyle.] `
-      );
+      liveSendText(`[REROUTE: Runner is ${Math.round(minDist)}m off route. Ask if they want rerouting.]`);
     }
   }, [currentLocation, plannedRoute, runState]);
 
-  // Initialize on mount
+  // Initialize
   useEffect(() => {
     const init = async () => {
-      const hasPermission = await requestLocationPermissions();
-      if (!hasPermission) {
-        console.warn('Location permission denied');
-      }
+      await requestLocationPermissions();
       setSportMode(initialSportMode);
 
-      // Register tool handlers for Gemini Live
       registerToolHandlers({
         get_current_stats: async () => ({
           distance_km: (stats.distance / 1000).toFixed(2),
@@ -114,177 +101,123 @@ export default function ActiveRunScreen() {
           current_pace: formatPace(stats.currentPace) + '/km',
           average_pace: formatPace(stats.averagePace) + '/km',
           cadence: stats.cadence + ' spm',
-          elevation_gain: Math.round(stats.elevationGain) + 'm',
           calories: stats.calories,
         }),
         get_route_info: async () => {
-          if (!plannedRoute) return { message: 'No planned route. Running freely.' };
-          if (!currentLocation) return { message: 'Location unavailable.' };
-
-          // Find the nearest upcoming step
-          const remaining = plannedRoute.totalDistance - stats.distance;
+          if (!plannedRoute) return { message: 'Running freely, no planned route.' };
           return {
             total_distance: formatDistance(plannedRoute.totalDistance),
-            distance_remaining: formatDistance(Math.max(0, remaining)),
+            distance_remaining: formatDistance(Math.max(0, plannedRoute.totalDistance - stats.distance)),
             next_turn: plannedRoute.steps[0]?.instruction || 'Continue straight',
-            distance_to_turn: plannedRoute.steps[0]?.distance + 'm',
           };
         },
         get_split_times: async () => ({
-          splits: stats.splits.map((s, i) => ({
-            km: i + 1,
-            pace: formatPace(s.pace),
-            time: formatDuration(s.time),
-          })),
+          splits: stats.splits.map((s, i) => ({ km: i + 1, pace: formatPace(s.pace) })),
         }),
         find_nearby_places: async (args: { type: string }) => {
-          if (!currentLocation) return { error: 'Location not available' };
-          const places = await findNearbyPlaces(
-            { lat: currentLocation.latitude, lng: currentLocation.longitude },
-            args.type as any
-          );
-          return { places: places.map((p) => ({ name: p.name, rating: p.rating, open: p.isOpen })) };
+          if (!currentLocation) return { error: 'No location' };
+          const places = await findNearbyPlaces({ lat: currentLocation.latitude, lng: currentLocation.longitude }, args.type as any);
+          return { places: places.map((p) => ({ name: p.name, rating: p.rating })) };
         },
         get_weather: async () => {
-          if (!currentLocation) return { error: 'Location not available' };
+          if (!currentLocation) return { error: 'No location' };
           return await getWeather(currentLocation.latitude, currentLocation.longitude) || { error: 'Unavailable' };
         },
-        web_search: async (args: { query: string }) => ({
-          message: `Search for "${args.query}" — search integration pending.`,
-        }),
-        get_location_context: async () => ({
-          lat: currentLocation?.latitude?.toFixed(4),
-          lng: currentLocation?.longitude?.toFixed(4),
-          message: currentLocation ? 'Location available' : 'Location unavailable',
-        }),
+        web_search: async (args: { query: string }) => ({ message: `Search: "${args.query}"` }),
+        get_location_context: async () => ({ lat: currentLocation?.latitude?.toFixed(4), lng: currentLocation?.longitude?.toFixed(4) }),
         generate_route: async (args: { shape?: string; distance_km?: number; mood?: string }) => {
-          if (!currentLocation) return { error: 'Location not available' };
-
+          if (!currentLocation) return { error: 'No location' };
           const origin = { lat: currentLocation.latitude, lng: currentLocation.longitude };
           let waypoints: { lat: number; lng: number }[] | undefined;
-
-          if (args.shape) {
-            waypoints = generateShapeWaypoints(origin, args.shape, args.distance_km || 2);
-          }
-
-          const destination = waypoints && waypoints.length > 0
-            ? waypoints[waypoints.length - 1]
-            : { lat: origin.lat + 0.01, lng: origin.lng + 0.01 };
-
-          const route = await getDirections(origin, destination, waypoints?.slice(0, -1));
+          if (args.shape) waypoints = generateShapeWaypoints(origin, args.shape, args.distance_km || 2);
+          const dest = waypoints?.length ? waypoints[waypoints.length - 1] : { lat: origin.lat + 0.01, lng: origin.lng + 0.01 };
+          const route = await getDirections(origin, dest, waypoints?.slice(0, -1));
           if (route) {
             if (args.shape) route.shape = args.shape;
-            route.name = args.shape ? `${args.shape} route` : args.mood ? `${args.mood} route` : 'Generated route';
+            route.name = args.shape ? `${args.shape} route` : 'Generated route';
             setPlannedRoute(route);
-            return {
-              success: true,
-              name: route.name,
-              distance: formatDistance(route.totalDistance),
-              duration: formatDuration(route.estimatedDuration),
-              message: `Route generated! ${route.name} - ${formatDistance(route.totalDistance)}`,
-            };
+            return { success: true, name: route.name, distance: formatDistance(route.totalDistance) };
           }
-          return { error: 'Could not generate route. Try a different shape or distance.' };
+          return { error: 'Could not generate route' };
         },
-        get_training_plan: async () => ({
-          message: 'No training plan set. Ask user if they want to create one!',
-        }),
-        get_achievements: async () => ({
-          total_distance: formatDistance(stats.distance),
-          message: 'Achievement tracking active.',
-        }),
+        get_training_plan: async () => ({ message: 'No plan set yet.' }),
+        get_achievements: async () => ({ total_distance: formatDistance(stats.distance) }),
       });
 
-      // Start the run
       startRun();
 
-      // Send greeting after countdown
-      setTimeout(() => {
-        if (isConnected) {
-          liveSendText("Hey! I just started my workout. Let's go!");
+      // Auto-generate route if selected on home screen
+      setTimeout(async () => {
+        if (isConnected) liveSendText("Hey! Just started my workout. Let's go!");
+
+        const shape = params.routeShape;
+        const distance = parseFloat(params.routeDistance || '0');
+        const mood = params.routeMood;
+
+        if ((shape || mood) && currentLocation) {
+          const origin = { lat: currentLocation.latitude, lng: currentLocation.longitude };
+          let waypoints: { lat: number; lng: number }[] | undefined;
+          if (shape) waypoints = generateShapeWaypoints(origin, shape, distance || 2);
+          const dest = waypoints?.length ? waypoints[waypoints.length - 1] : { lat: origin.lat + 0.01, lng: origin.lng + 0.01 };
+          const route = await getDirections(origin, dest, waypoints?.slice(0, -1));
+          if (route) {
+            if (shape) route.shape = shape;
+            route.name = shape ? `${shape} route` : `${mood} route`;
+            setPlannedRoute(route);
+          }
         }
-      }, 4000);
+      }, 5000);
     };
-
     init();
-
-    return () => {
-      disconnectLive();
-    };
+    return () => { disconnectLive(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleOrbPress = () => {
-    if (orbState === 'speaking') {
-      // Could stop playback
-    } else {
-      toggleMicrophone();
-    }
-  };
-
+  const handleOrbPress = () => toggleMicrophone();
   const handleSendChat = () => {
-    if (chatInput.trim()) {
-      sendTextMessage(chatInput.trim());
-      setChatInput('');
-      setShowChatInput(false);
-    }
+    if (chatInput.trim()) { sendTextMessage(chatInput.trim()); setChatInput(''); setShowChatInput(false); }
   };
-
   const handleFinish = () => {
     finishRun();
-    liveSendText(
-      `[RUN COMPLETE] Final: ${formatDistance(stats.distance)}, ` +
-      `${formatDuration(stats.duration)}, Avg ${formatPace(stats.averagePace)}/km. ` +
-      `Give a fun post-run debrief!`
-    );
+    liveSendText(`[RUN COMPLETE] ${formatDistance(stats.distance)}, ${formatDuration(stats.duration)}, Avg ${formatPace(stats.averagePace)}/km. Give a fun debrief!`);
   };
 
   const isTreadmill = sportMode === 'treadmill';
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Countdown overlay */}
       {runState === 'countdown' && (
-        <View style={styles.countdownOverlay}>
-          <CountdownTimer />
-        </View>
+        <View style={styles.countdownOverlay}><CountdownTimer /></View>
       )}
 
-      {/* Connection indicator */}
+      {/* Connection bar */}
       <View style={styles.connectionBar}>
-        <View style={[styles.connectionDot, isConnected ? styles.dotConnected : styles.dotDisconnected]} />
-        <Text style={styles.connectionText}>
-          {isConnected ? 'GymBro connected' : 'Connecting...'}
-        </Text>
-        {isListening && <Text style={styles.micBadge}>🎙️ LIVE</Text>}
+        <View style={[styles.dot, isConnected ? styles.dotOn : styles.dotOff]} />
+        <Text style={styles.connectionText}>{isConnected ? 'GymBro connected' : 'Connecting...'}</Text>
+        {isListening && <Text style={styles.liveBadge}>● LIVE</Text>}
       </View>
 
-      {/* Map (hidden on treadmill) */}
-      <View style={[styles.mapSection, isTreadmill && styles.mapHidden]}>
+      {/* Map */}
+      <View style={[styles.mapSection, isTreadmill && styles.mapSmall]}>
         {isTreadmill ? (
-          <View style={styles.treadmillBanner}>
-            <Text style={styles.treadmillEmoji}>🏋️</Text>
-            <Text style={styles.treadmillText}>Treadmill Mode</Text>
-            <Text style={styles.treadmillSubtext}>Auto-detected indoor workout</Text>
+          <View style={styles.treadmillCard}>
+            <Text style={{ fontSize: 40 }}>🏋️</Text>
+            <Text style={styles.treadmillTitle}>Treadmill Mode</Text>
+            <Text style={styles.treadmillSub}>Auto-detected indoor workout</Text>
           </View>
         ) : (
-          <RunMap
-            currentLocation={currentLocation}
-            breadcrumbs={breadcrumbs}
-            route={plannedRoute}
-            showMap={runState === 'active' || runState === 'paused' || runState === 'finished'}
-          />
+          <RunMap currentLocation={currentLocation} breadcrumbs={breadcrumbs} route={plannedRoute} showMap={runState !== 'idle'} />
         )}
       </View>
 
-      {/* Stats Panel */}
+      {/* Stats */}
       <View style={styles.statsSection}>
         <StatsPanel stats={stats} sportMode={sportMode} targetPace={targetPace} />
       </View>
 
-      {/* Voice Orb + Chat */}
+      {/* Voice */}
       <View style={styles.voiceSection}>
         {showChatInput && (
-          <View style={styles.chatInputRow}>
+          <View style={styles.chatRow}>
             <TextInput
               style={styles.chatInput}
               value={chatInput}
@@ -295,26 +228,14 @@ export default function ActiveRunScreen() {
               returnKeyType="send"
               autoFocus
             />
-            <TouchableOpacity style={styles.sendButton} onPress={handleSendChat}>
-              <Text style={styles.sendButtonText}>Send</Text>
+            <TouchableOpacity style={styles.sendBtn} onPress={handleSendChat}>
+              <Text style={styles.sendBtnText}>→</Text>
             </TouchableOpacity>
           </View>
         )}
-
-        <VoiceOrb
-          state={orbState}
-          latestMessage={latestMessage}
-          onPress={handleOrbPress}
-        />
-
-        {/* Text chat toggle */}
-        <TouchableOpacity
-          style={styles.textChatToggle}
-          onPress={() => setShowChatInput(!showChatInput)}
-        >
-          <Text style={styles.textChatToggleText}>
-            {showChatInput ? '✕ Close' : '⌨️ Type'}
-          </Text>
+        <VoiceOrb state={orbState} latestMessage={latestMessage} onPress={handleOrbPress} />
+        <TouchableOpacity onPress={() => setShowChatInput(!showChatInput)}>
+          <Text style={styles.typeToggle}>{showChatInput ? '✕ Close' : '⌨️ Type instead'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -322,41 +243,27 @@ export default function ActiveRunScreen() {
       <View style={styles.controls}>
         {runState === 'active' && (
           <View style={styles.controlRow}>
-            <TouchableOpacity style={styles.controlButton} onPress={pauseRun}>
-              <Text style={styles.controlEmoji}>⏸️</Text>
-              <Text style={styles.controlLabel}>Pause</Text>
+            <TouchableOpacity style={styles.controlBtn} onPress={pauseRun}>
+              <Text style={styles.controlText}>⏸ Pause</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.controlButton, styles.finishButton]}
-              onPress={handleFinish}
-            >
-              <Text style={styles.controlEmoji}>🏁</Text>
-              <Text style={styles.controlLabel}>Finish</Text>
+            <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
+              <Text style={styles.finishText}>🏁 Finish</Text>
             </TouchableOpacity>
           </View>
         )}
         {runState === 'paused' && (
           <View style={styles.controlRow}>
-            <TouchableOpacity style={styles.controlButton} onPress={resumeRun}>
-              <Text style={styles.controlEmoji}>▶️</Text>
-              <Text style={styles.controlLabel}>Resume</Text>
+            <TouchableOpacity style={styles.controlBtn} onPress={resumeRun}>
+              <Text style={styles.controlText}>▶ Resume</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.controlButton, styles.finishButton]}
-              onPress={handleFinish}
-            >
-              <Text style={styles.controlEmoji}>🏁</Text>
-              <Text style={styles.controlLabel}>Finish</Text>
+            <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
+              <Text style={styles.finishText}>🏁 Finish</Text>
             </TouchableOpacity>
           </View>
         )}
         {runState === 'finished' && (
-          <TouchableOpacity
-            style={[styles.controlButton, { flex: 1 }]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.controlEmoji}>🏠</Text>
-            <Text style={styles.controlLabel}>Done</Text>
+          <TouchableOpacity style={[styles.controlBtn, { flex: 1 }]} onPress={() => router.back()}>
+            <Text style={styles.controlText}>Done</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -366,170 +273,61 @@ export default function ActiveRunScreen() {
 
 function CountdownTimer() {
   const [count, setCount] = React.useState(3);
-
   React.useEffect(() => {
     if (count <= 0) return;
-    const timer = setTimeout(() => setCount(count - 1), 1000);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setCount(count - 1), 1000);
+    return () => clearTimeout(t);
   }, [count]);
-
-  return (
-    <Text style={countdownStyles.text}>
-      {count > 0 ? count : 'GO!'}
-    </Text>
-  );
+  return <Text style={cdStyles.text}>{count > 0 ? count : 'Go'}</Text>;
 }
 
-const countdownStyles = StyleSheet.create({
-  text: {
-    fontSize: 96,
-    fontWeight: '900',
-    color: Colors.primary,
-  },
+const cdStyles = StyleSheet.create({
+  text: { fontSize: 80, fontWeight: '200', color: Colors.primary, letterSpacing: -3 },
 });
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
   countdownOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 100,
-    backgroundColor: Colors.background + 'EE',
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...StyleSheet.absoluteFillObject, zIndex: 100,
+    backgroundColor: 'rgba(244, 247, 249, 0.95)', alignItems: 'center', justifyContent: 'center',
   },
   connectionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    gap: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6, gap: 8,
   },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  dotOn: { backgroundColor: Colors.primaryLight },
+  dotOff: { backgroundColor: Colors.secondaryWarm },
+  connectionText: { color: Colors.textMuted, fontSize: FontSize.xs },
+  liveBadge: { color: Colors.secondaryWarm, fontSize: FontSize.xs, fontWeight: '700' },
+  mapSection: { flex: 3, margin: Spacing.md, borderRadius: BorderRadius.md, overflow: 'hidden' },
+  mapSmall: { flex: 1.5 },
+  treadmillCard: {
+    flex: 1, ...GlassCard, alignItems: 'center', justifyContent: 'center',
   },
-  dotConnected: {
-    backgroundColor: Colors.success,
-  },
-  dotDisconnected: {
-    backgroundColor: Colors.error,
-  },
-  connectionText: {
-    color: Colors.textMuted,
-    fontSize: FontSize.xs,
-  },
-  micBadge: {
-    color: Colors.error,
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-  },
-  mapSection: {
-    flex: 3,
-    margin: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-  },
-  mapHidden: {
-    flex: 1.5,
-  },
-  treadmillBanner: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.lg,
-  },
-  treadmillEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.sm,
-  },
-  treadmillText: {
-    color: Colors.treadmill,
-    fontSize: FontSize.xl,
-    fontWeight: '800',
-  },
-  treadmillSubtext: {
-    color: Colors.textMuted,
-    fontSize: FontSize.sm,
-    marginTop: Spacing.xs,
-  },
-  statsSection: {
-    flex: 2,
-    justifyContent: 'center',
-  },
-  voiceSection: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chatInputRow: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-    gap: Spacing.sm,
-    width: '100%',
-  },
+  treadmillTitle: { color: Colors.secondaryWarm, fontSize: FontSize.xl, fontWeight: '500', marginTop: Spacing.sm },
+  treadmillSub: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 2 },
+  statsSection: { flex: 2, justifyContent: 'center' },
+  voiceSection: { flex: 2, alignItems: 'center', justifyContent: 'center' },
+  chatRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.sm, width: '100%' },
   chatInput: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    color: Colors.text,
-    fontSize: FontSize.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.xl,
+    flex: 1, backgroundColor: Colors.surfaceLow, color: Colors.text, fontSize: FontSize.md,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.md,
+    borderWidth: 1, borderColor: Colors.glassBorder,
   },
-  sendButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.md,
-    justifyContent: 'center',
-    borderRadius: BorderRadius.xl,
+  sendBtn: {
+    backgroundColor: Colors.primaryMint, paddingHorizontal: Spacing.md, justifyContent: 'center', borderRadius: BorderRadius.md,
   },
-  sendButtonText: {
-    color: Colors.text,
-    fontWeight: '700',
+  sendBtnText: { color: Colors.textOnPrimary, fontWeight: '700', fontSize: FontSize.lg },
+  typeToggle: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: Spacing.xs },
+  controls: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  controlRow: { flexDirection: 'row', gap: Spacing.md },
+  controlBtn: {
+    flex: 1, ...GlassCard, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center',
   },
-  textChatToggle: {
-    marginTop: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
+  controlText: { color: Colors.text, fontSize: FontSize.md, fontWeight: '500' },
+  finishBtn: {
+    flex: 1, backgroundColor: 'rgba(168, 56, 54, 0.08)', borderWidth: 1, borderColor: 'rgba(168, 56, 54, 0.2)',
+    borderRadius: BorderRadius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center',
   },
-  textChatToggleText: {
-    color: Colors.textMuted,
-    fontSize: FontSize.xs,
-  },
-  controls: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
-  },
-  controlRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  controlButton: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  finishButton: {
-    backgroundColor: Colors.error + '30',
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  controlEmoji: {
-    fontSize: 20,
-  },
-  controlLabel: {
-    color: Colors.text,
-    fontSize: FontSize.md,
-    fontWeight: '700',
-  },
+  finishText: { color: Colors.error, fontSize: FontSize.md, fontWeight: '500' },
 });

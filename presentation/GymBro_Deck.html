@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GymBro - Presentation Deck</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #fff;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .slide {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    padding: 60px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide.active { display: flex; flex-direction: column; }
+
+  /* Slide backgrounds */
+  .slide::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 40%, rgba(124, 58, 237, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+    z-index: 0;
+    animation: bgFloat 20s ease-in-out infinite;
+  }
+  @keyframes bgFloat {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-2%, -2%); }
+  }
+
+  .slide > * { position: relative; z-index: 1; }
+
+  /* Navigation */
+  .nav {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    display: flex;
+    gap: 12px;
+    z-index: 100;
+  }
+  .nav button {
+    background: rgba(124, 58, 237, 0.3);
+    border: 1px solid rgba(124, 58, 237, 0.5);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .nav button:hover { background: rgba(124, 58, 237, 0.6); }
+
+  .slide-counter {
+    position: fixed;
+    bottom: 36px;
+    left: 40px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    z-index: 100;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Typography */
+  h1 { font-size: 64px; font-weight: 900; line-height: 1.1; letter-spacing: -2px; }
+  h2 { font-size: 48px; font-weight: 800; line-height: 1.2; letter-spacing: -1px; margin-bottom: 30px; }
+  h3 { font-size: 28px; font-weight: 700; margin-bottom: 16px; }
+  p, li { font-size: 22px; line-height: 1.6; color: rgba(255,255,255,0.85); }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #7c3aed, #3b82f6, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 26px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 400;
+    margin-top: 16px;
+  }
+
+  .tag {
+    display: inline-block;
+    background: rgba(124, 58, 237, 0.2);
+    border: 1px solid rgba(124, 58, 237, 0.4);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #a78bfa;
+    margin: 4px;
+  }
+
+  /* Card layouts */
+  .cards { display: grid; gap: 24px; flex: 1; align-content: start; }
+  .cards-2 { grid-template-columns: 1fr 1fr; }
+  .cards-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cards-4 { grid-template-columns: 1fr 1fr; }
+
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 28px;
+    transition: all 0.3s;
+  }
+  .card:hover { background: rgba(255,255,255,0.07); border-color: rgba(124, 58, 237, 0.3); }
+
+  .card .icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .card h3 { font-size: 22px; margin-bottom: 8px; }
+  .card p { font-size: 17px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+  /* Flow diagram */
+  .flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    padding: 16px 24px;
+    border-radius: 12px;
+    text-align: center;
+    min-width: 140px;
+  }
+  .flow-step .icon { font-size: 28px; margin-bottom: 6px; display: block; }
+  .flow-step span { font-size: 15px; font-weight: 500; }
+  .flow-arrow { font-size: 24px; color: rgba(124, 58, 237, 0.6); }
+
+  /* Character cards */
+  .char-card {
+    text-align: center;
+    padding: 24px 16px;
+  }
+  .char-card .avatar { font-size: 48px; margin-bottom: 12px; display: block; }
+  .char-card .name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .char-card .vibe { font-size: 14px; color: #a78bfa; margin-bottom: 8px; }
+  .char-card .quote {
+    font-size: 15px;
+    font-style: italic;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.4;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    margin: 30px 0;
+  }
+  .stat { text-align: center; }
+  .stat .num { font-size: 56px; font-weight: 900; }
+  .stat .label { font-size: 16px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+
+  /* Tech stack pills */
+  .tech-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .tech-pill {
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #93c5fd;
+  }
+
+  /* Timeline */
+  .timeline { margin-top: 20px; }
+  .timeline-item {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    align-items: flex-start;
+  }
+  .timeline-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #7c3aed;
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+  .timeline-dot.done { background: #22c55e; }
+  .timeline-dot.next { background: #f59e0b; }
+  .timeline-content h4 { font-size: 19px; font-weight: 600; margin-bottom: 2px; }
+  .timeline-content p { font-size: 16px; color: rgba(255,255,255,0.5); }
+
+  /* Centered layout */
+  .centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+  }
+
+  /* Section label */
+  .section-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #7c3aed;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .divider {
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #7c3aed, #3b82f6);
+    border-radius: 2px;
+    margin: 20px 0;
+  }
+
+  .highlight-box {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(59, 130, 246, 0.1));
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 16px;
+    padding: 28px 36px;
+    margin: 20px 0;
+    font-size: 22px;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  ul { list-style: none; padding: 0; }
+  ul li { padding: 8px 0; padding-left: 28px; position: relative; }
+  ul li::before {
+    content: '>';
+    position: absolute;
+    left: 0;
+    color: #7c3aed;
+    font-weight: 700;
+  }
+
+  /* Print / Export styles */
+  @media print {
+    .nav, .slide-counter { display: none; }
+    .slide { display: flex !important; page-break-after: always; height: 100vh; }
+    body { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== SLIDE 1: TITLE ==================== -->
+<div class="slide active" id="slide-1">
+  <div class="centered">
+    <div style="font-size: 80px; margin-bottom: 20px;">💪</div>
+    <h1><span class="gradient-text">GymBro</span></h1>
+    <p class="subtitle" style="font-size: 30px; margin-top: 20px;">Your AI Running Buddy That Actually Talks Back</p>
+    <div class="divider" style="margin: 30px auto;"></div>
+    <p style="font-size: 20px; color: rgba(255,255,255,0.4);">Powered by Gemini 2.0 Flash &bull; Built with React Native + Expo</p>
+    <div style="margin-top: 40px;">
+      <span class="tag">Google AI Hackathon</span>
+      <span class="tag">Gemini Live Agent</span>
+      <span class="tag">Mobile App</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SLIDE 2: THE PROBLEM ==================== -->
+<div class="slide" id="slide-2">
+  <div class="section-label">The Problem</div>
+  <h2>Running alone is <span class="gradient-text">boring</span>.</h2>
+  <div class="cards cards-3" style="margin-top: 20px;">
+    <div class="card">
+      <span class="icon">😴</span>
+      <h3>Motivation Dies</h3>
+      <p>Solo runners lose momentum without someone pushing them. 65% quit within the first month.</p>
+    </div>
+    <div class="card">
+      <span class="icon">📊</span>
+      <h3>Dashboards Don't Talk</h3>
+      <p>Traditional fitness apps throw numbers at you. No context, no encouragement, no personality.</p>
+    </div>
+    <div class="card">
+      <span class="icon">🎧</span>
+      <h3>Podcasts Don't Coach</h3>
+      <p>Listening to content is passive. It can't tell you to speed up, celebrate your PR, or suggest a route.</p>
+    </div>
+  </div>
+  <div class="highlight-box" style="margin-top: 30px;">
+    What if you had a <strong>real buddy</strong> who runs with you, chats with you, coaches you &mdash; and never cancels on you?
+  </div>
+</div>
+
+<!-- ==================== SLIDE 3: THE SOLUTION ==================== -->
+<div class="slide" id="slide-3">
+  <div class="section-label">The Solution</div>
+  <h2>Meet <span class="gradient-text">GymBro</span></h2>
+  <p style="font-size: 24px; max-width: 800px; margin-bottom: 30px;">
+    An AI-powered running companion that <strong>talks to you in real-time</strong> during your workout &mdash;
+    with personality, context awareness, and live coaching.
+  </p>
+  <div class="cards cards-2">
+    <div class="card">
+      <span class="icon">🗣️</span>
+      <h3>Conversational First</h3>
+      <p>The AI buddy is the primary interface. Talk naturally, get coached, have fun &mdash; hands-free.</p>
+    </div>
+    <div class="card">
+      <span class="icon">🧠</span>
+      <h3>Context Aware</h3>
+      <p>Gemini has live access to your pace, distance, location, weather, nearby places &mdash; and the internet.</p>
+    </div>
+    <div class="card">
+      <span class="icon">🎭</span>
+      <h3>4 Unique Characters</h3>
+      <p>Choose your vibe: tough drill sergeant, chill surfer, hype beast, or wise sensei. Each sounds different.</p>
+    </div>
+    <div class="card">
+      <span class="icon">🏃</span>
+      <h3>3 Sport Modes</h3>
+      <p>Running, walking, or treadmill &mdash; each mode adapts coaching style, triggers, and conversation topics.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SLIDE 4: CHARACTERS ==================== -->
+<div class="slide" id="slide-4">
+  <div class="section-label">Personality System</div>
+  <h2>Pick Your <span class="gradient-text">Buddy</span></h2>
+  <p style="margin-bottom: 30px; color: rgba(255,255,255,0.6);">
+    4 distinct AI personalities with unique voices, coaching styles, and vibes. 12 combinations (4 characters x 3 sports).
+  </p>
+  <div class="cards cards-4">
+    <div class="card char-card">
+      <span class="avatar">🫡</span>
+      <div class="name">Coach Drill</div>
+      <div class="vibe">Tough Love &bull; Deep Voice</div>
+      <div class="quote">"THAT PACE? NOT ACCEPTABLE! You've got more in the tank, soldier!"</div>
+    </div>
+    <div class="card char-card">
+      <span class="avatar">😎</span>
+      <div class="name">Chill Charlie</div>
+      <div class="vibe">Relaxed &bull; Smooth Voice</div>
+      <div class="quote">"Hey no stress, you're killing it in your own way. Nice vibes out here."</div>
+    </div>
+    <div class="card char-card">
+      <span class="avatar">🔥</span>
+      <div class="name">Hype Queen</div>
+      <div class="vibe">Maximum Energy &bull; Fast Voice</div>
+      <div class="quote">"YESSS LET'S GOOO!! You just crushed that km!! UNSTOPPABLE!!"</div>
+    </div>
+    <div class="card char-card">
+      <span class="avatar">🧘</span>
+      <div class="name">Sensei</div>
+      <div class="vibe">Calm &amp; Wise &bull; Serene Voice</div>
+      <div class="quote">"Each step is purposeful. Feel the ground beneath you. Breathe."</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SLIDE 5: HOW GEMINI POWERS IT ==================== -->
+<div class="slide" id="slide-5">
+  <div class="section-label">Core Technology</div>
+  <h2>Gemini <span class="gradient-text">Live Agent</span> Architecture</h2>
+  <p style="margin-bottom: 24px;">Gemini 2.0 Flash with real-time function calling &mdash; the AI doesn't just talk, it <strong>acts</strong>.</p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <span class="icon">🏃</span>
+      <span>Runner speaks<br/>or trigger fires</span>
+    </div>
+    <span class="flow-arrow">&#8594;</span>
+    <div class="flow-step">
+      <span class="icon">🧠</span>
+      <span>Gemini 2.0<br/>processes</span>
+    </div>
+    <span class="flow-arrow">&#8594;</span>
+    <div class="flow-step">
+      <span class="icon">🔧</span>
+      <span>Calls tools<br/>(stats, weather...)</span>
+    </div>
+    <span class="flow-arrow">&#8594;</span>
+    <div class="flow-step">
+      <span class="icon">📊</span>
+      <span>Gets real-time<br/>data back</span>
+    </div>
+    <span class="flow-arrow">&#8594;</span>
+    <div class="flow-step">
+      <span class="icon">🗣️</span>
+      <span>Speaks response<br/>in character voice</span>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 30px;">10 Custom Function Tools</h3>
+  <div class="tech-grid">
+    <span class="tech-pill">get_current_stats</span>
+    <span class="tech-pill">get_route_info</span>
+    <span class="tech-pill">get_split_times</span>
+    <span class="tech-pill">find_nearby_places</span>
+    <span class="tech-pill">get_weather</span>
+    <span class="tech-pill">web_search</span>
+    <span class="tech-pill">get_location_context</span>
+    <span class="tech-pill">generate_route</span>
+    <span class="tech-pill">get_training_plan</span>
+    <span class="tech-pill">get_achievements</span>
+  </div>
+  <p style="margin-top: 16px; font-size: 17px; color: rgba(255,255,255,0.5);">
+    Gemini decides which tools to call based on conversation context &mdash; no hardcoded logic.
+  </p>
+</div>
+
+<!-- ==================== SLIDE 6: PROACTIVE COACHING ==================== -->
+<div class="slide" id="slide-6">
+  <div class="section-label">Smart Coaching</div>
+  <h2>The AI Speaks <span class="gradient-text">First</span></h2>
+  <p style="margin-bottom: 30px;">GymBro doesn't wait for you to ask. It proactively coaches based on real-time triggers.</p>
+  <div class="cards cards-4">
+    <div class="card">
+      <span class="icon">🏁</span>
+      <h3>Km Milestones</h3>
+      <p>Every kilometer completed triggers a celebration with split time analysis. "That was your fastest km yet!"</p>
+    </div>
+    <div class="card">
+      <span class="icon">⚡</span>
+      <h3>Pace Drift Alerts</h3>
+      <p>If you drift &gt;10% from target pace, the buddy casually nudges you. No lecturing, just a heads up.</p>
+    </div>
+    <div class="card">
+      <span class="icon">💬</span>
+      <h3>Conversation Starters</h3>
+      <p>Every 2 minutes of silence, the AI starts a chat &mdash; trivia, observations, or fun questions to keep you engaged.</p>
+    </div>
+    <div class="card">
+      <span class="icon">📡</span>
+      <h3>Silent Context Sync</h3>
+      <p>Stats are pushed to Gemini every 30s so it always has fresh data &mdash; even before you ask.</p>
+    </div>
+  </div>
+  <div class="highlight-box" style="margin-top: 24px;">
+    Result: The AI feels like a <strong>present, attentive buddy</strong> &mdash; not a chatbot you have to prompt.
+  </div>
+</div>
+
+<!-- ==================== SLIDE 7: DEMO / SCREENS ==================== -->
+<div class="slide" id="slide-7">
+  <div class="section-label">User Experience</div>
+  <h2>App <span class="gradient-text">Walkthrough</span></h2>
+  <div class="cards cards-3" style="margin-top: 10px;">
+    <div class="card" style="text-align: center;">
+      <span class="icon" style="font-size: 48px;">🏠</span>
+      <h3>Home Screen</h3>
+      <p>Pick your sport mode, choose a character, set target pace, and hit Start.</p>
+      <div style="margin-top: 12px;">
+        <span class="tag">Sport Picker</span>
+        <span class="tag">Character Picker</span>
+        <span class="tag">Target Pace</span>
+      </div>
+    </div>
+    <div class="card" style="text-align: center;">
+      <span class="icon" style="font-size: 48px;">🗺️</span>
+      <h3>Active Run</h3>
+      <p>Live map with route tracking, real-time stats panel, and the Voice Orb for AI interaction.</p>
+      <div style="margin-top: 12px;">
+        <span class="tag">Live Map</span>
+        <span class="tag">Stats Panel</span>
+        <span class="tag">Voice Orb</span>
+      </div>
+    </div>
+    <div class="card" style="text-align: center;">
+      <span class="icon" style="font-size: 48px;">🏆</span>
+      <h3>Profile</h3>
+      <p>Track your stats, streaks, achievements, XP level. Gamification that keeps you coming back.</p>
+      <div style="margin-top: 12px;">
+        <span class="tag">Achievements</span>
+        <span class="tag">Streaks</span>
+        <span class="tag">XP System</span>
+      </div>
+    </div>
+  </div>
+  <div class="cards cards-3" style="margin-top: 0;">
+    <div class="card" style="border-color: rgba(124, 58, 237, 0.3); text-align: center;">
+      <h3 style="color: #a78bfa;">Voice Orb States</h3>
+      <div style="display: flex; justify-content: space-around; margin-top: 12px;">
+        <div><div style="font-size: 28px;">🎙️</div><div style="font-size: 13px; color: rgba(255,255,255,0.5);">Idle</div></div>
+        <div><div style="font-size: 28px;">👂</div><div style="font-size: 13px; color: rgba(255,255,255,0.5);">Listening</div></div>
+        <div><div style="font-size: 28px;">💭</div><div style="font-size: 13px; color: rgba(255,255,255,0.5);">Thinking</div></div>
+        <div><div style="font-size: 28px;">🗣️</div><div style="font-size: 13px; color: rgba(255,255,255,0.5);">Speaking</div></div>
+      </div>
+    </div>
+    <div class="card" style="border-color: rgba(59, 130, 246, 0.3); text-align: center;">
+      <h3 style="color: #93c5fd;">Pace Color Coding</h3>
+      <div style="display: flex; justify-content: space-around; margin-top: 12px;">
+        <div><div style="font-size: 28px; color: #3b82f6;">5:20</div><div style="font-size: 13px; color: rgba(255,255,255,0.5);">Faster</div></div>
+        <div><div style="font-size: 28px; color: #22c55e;">5:30</div><div style="font-size: 13px; color: rgba(255,255,255,0.5);">On Target</div></div>
+        <div><div style="font-size: 28px; color: #ef4444;">5:45</div><div style="font-size: 13px; color: rgba(255,255,255,0.5);">Slower</div></div>
+      </div>
+    </div>
+    <div class="card" style="border-color: rgba(34, 197, 94, 0.3); text-align: center;">
+      <h3 style="color: #86efac;">Live Stats</h3>
+      <div style="display: flex; justify-content: space-around; margin-top: 12px; flex-wrap: wrap; gap: 8px;">
+        <span class="tag" style="border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.1);">Pace</span>
+        <span class="tag" style="border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.1);">Distance</span>
+        <span class="tag" style="border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.1);">Cadence</span>
+        <span class="tag" style="border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.1);">Calories</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SLIDE 8: TECH STACK ==================== -->
+<div class="slide" id="slide-8">
+  <div class="section-label">Under the Hood</div>
+  <h2>Tech <span class="gradient-text">Stack</span></h2>
+  <div class="cards cards-2" style="margin-top: 10px;">
+    <div class="card">
+      <span class="icon">📱</span>
+      <h3>Frontend</h3>
+      <div class="tech-grid">
+        <span class="tech-pill">React Native 0.76</span>
+        <span class="tech-pill">Expo ~54</span>
+        <span class="tech-pill">TypeScript</span>
+        <span class="tech-pill">Expo Router</span>
+        <span class="tech-pill">Reanimated</span>
+      </div>
+    </div>
+    <div class="card">
+      <span class="icon">🤖</span>
+      <h3>AI / ML</h3>
+      <div class="tech-grid">
+        <span class="tech-pill">Gemini 2.0 Flash</span>
+        <span class="tech-pill">Function Calling</span>
+        <span class="tech-pill">Dynamic Prompts</span>
+        <span class="tech-pill">Expo Speech (TTS)</span>
+      </div>
+    </div>
+    <div class="card">
+      <span class="icon">🗺️</span>
+      <h3>Location & Sensors</h3>
+      <div class="tech-grid">
+        <span class="tech-pill">Google Maps API</span>
+        <span class="tech-pill">Expo Location</span>
+        <span class="tech-pill">Pedometer</span>
+        <span class="tech-pill">Accelerometer</span>
+      </div>
+    </div>
+    <div class="card">
+      <span class="icon">☁️</span>
+      <h3>Backend</h3>
+      <div class="tech-grid">
+        <span class="tech-pill">Firebase Auth</span>
+        <span class="tech-pill">Cloud Firestore</span>
+        <span class="tech-pill">AsyncStorage</span>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top: 24px; text-align: center;">
+    <p style="font-size: 18px; color: rgba(255,255,255,0.4);">
+      Well-structured codebase: hooks for logic, services for APIs, components for UI, constants for config
+    </p>
+  </div>
+</div>
+
+<!-- ==================== SLIDE 9: WHAT MAKES US DIFFERENT ==================== -->
+<div class="slide" id="slide-9">
+  <div class="section-label">Differentiation</div>
+  <h2>Why GymBro <span class="gradient-text">Stands Out</span></h2>
+  <div class="cards cards-2" style="margin-top: 10px;">
+    <div class="card">
+      <span class="icon">1️⃣</span>
+      <h3>Conversation IS the Interface</h3>
+      <p>Most fitness apps show dashboards. GymBro makes the AI buddy the primary way you interact. Talk, don't tap.</p>
+    </div>
+    <div class="card">
+      <span class="icon">2️⃣</span>
+      <h3>Live Function Calling Loop</h3>
+      <p>Gemini autonomously calls tools mid-conversation to get stats, weather, places. No hardcoded flows.</p>
+    </div>
+    <div class="card">
+      <span class="icon">3️⃣</span>
+      <h3>Proactive, Not Reactive</h3>
+      <p>The AI speaks first &mdash; celebrating milestones, nudging pace, starting conversations. It feels alive.</p>
+    </div>
+    <div class="card">
+      <span class="icon">4️⃣</span>
+      <h3>Personality with Real Voice</h3>
+      <p>Each character has distinct pitch, rate, and coaching style. Drill sounds different from Chill. It's not just text.</p>
+    </div>
+  </div>
+  <div class="highlight-box" style="margin-top: 20px;">
+    GymBro is a <strong>post-dashboard fitness experience</strong>. The AI is not a feature &mdash; it's the product.
+  </div>
+</div>
+
+<!-- ==================== SLIDE 10: ROADMAP ==================== -->
+<div class="slide" id="slide-10">
+  <div class="section-label">What's Next</div>
+  <h2>Roadmap & <span class="gradient-text">Vision</span></h2>
+  <div class="cards cards-2">
+    <div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot done"></div>
+          <div class="timeline-content">
+            <h4>Core Experience &#10003;</h4>
+            <p>GPS tracking, Gemini chat, 4 characters, 3 sport modes, voice output, proactive coaching</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot done"></div>
+          <div class="timeline-content">
+            <h4>Function Calling &#10003;</h4>
+            <p>10 custom tools &mdash; stats, weather, places, routes, achievements</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot done"></div>
+          <div class="timeline-content">
+            <h4>Gamification &#10003;</h4>
+            <p>Achievements, streaks, XP, levels, badges designed and integrated</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot next"></div>
+          <div class="timeline-content">
+            <h4>Gemini Live Audio (Next)</h4>
+            <p>Real-time speech-to-speech with Gemini &mdash; true hands-free conversation</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>Training Plans</h4>
+            <p>AI-generated marathon prep, couch-to-5K, custom plans via voice</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>Social & Multiplayer</h4>
+            <p>Challenge friends, shared runs, leaderboards, community characters</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom: 20px; border-color: rgba(245, 158, 11, 0.3);">
+        <span class="icon">🎯</span>
+        <h3>Vision</h3>
+        <p style="font-size: 19px; line-height: 1.6;">
+          Make GymBro the <strong>default way people experience fitness</strong> &mdash;
+          not through screens and metrics, but through a conversation with an AI that knows you,
+          motivates you, and makes every workout feel like running with a friend.
+        </p>
+      </div>
+      <div class="card" style="border-color: rgba(34, 197, 94, 0.3);">
+        <span class="icon">💡</span>
+        <h3>Why Gemini</h3>
+        <p style="font-size: 17px; line-height: 1.6;">
+          Gemini 2.0 Flash's <strong>function calling</strong> is the key enabler.
+          The AI can autonomously decide to check your pace, look up the weather,
+          or find a nearby cafe &mdash; making conversations feel genuinely intelligent and context-aware.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SLIDE 11: THANK YOU ==================== -->
+<div class="slide" id="slide-11">
+  <div class="centered">
+    <div style="font-size: 80px; margin-bottom: 20px;">💪</div>
+    <h1><span class="gradient-text">Thank You</span></h1>
+    <p class="subtitle" style="font-size: 26px; margin-top: 20px;">
+      GymBro &mdash; Because running alone shouldn't mean running in silence.
+    </p>
+    <div class="divider" style="margin: 30px auto;"></div>
+    <div style="margin-top: 20px;">
+      <span class="tag">React Native + Expo</span>
+      <span class="tag">Gemini 2.0 Flash</span>
+      <span class="tag">Function Calling</span>
+      <span class="tag">Firebase</span>
+      <span class="tag">Google Maps</span>
+    </div>
+    <p style="margin-top: 40px; font-size: 18px; color: rgba(255,255,255,0.3);">
+      Built for the Google AI Hackathon
+    </p>
+  </div>
+</div>
+
+<!-- ==================== NAVIGATION ==================== -->
+<div class="slide-counter">
+  <span id="current-slide">1</span> / <span id="total-slides">11</span>
+</div>
+
+<div class="nav">
+  <button onclick="prevSlide()">&#8592; Prev</button>
+  <button onclick="nextSlide()">Next &#8594;</button>
+</div>
+
+<script>
+  let current = 1;
+  const total = 11;
+
+  function showSlide(n) {
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.getElementById(`slide-${n}`).classList.add('active');
+    document.getElementById('current-slide').textContent = n;
+    current = n;
+  }
+
+  function nextSlide() { if (current < total) showSlide(current + 1); }
+  function prevSlide() { if (current > 1) showSlide(current - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+    if (e.key === 'f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+</script>
+
+</body>
+</html>
