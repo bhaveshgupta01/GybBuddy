@@ -172,8 +172,9 @@ export function connectLive(
       const data = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
 
       if (data.setupComplete) {
-        console.log('[GeminiLive] Setup complete — voice ready');
+        console.log('[GeminiLive] ✅ Setup complete — LIVE VOICE READY');
         isSetupComplete = true;
+        onConnectionChange?.(true);
         return;
       }
 
@@ -250,32 +251,54 @@ async function handleToolCall(toolCall: any): Promise<void> {
 }
 
 // ==========================================
-// Text messaging (uses REST with TTS fallback)
+// Wait for Live API setup
+// ==========================================
+function waitForSetup(timeoutMs: number = 10000): Promise<boolean> {
+  if (isSetupComplete) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const check = setInterval(() => {
+      if (isSetupComplete) {
+        clearInterval(check);
+        resolve(true);
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(check);
+        resolve(false);
+      }
+    }, 200);
+  });
+}
+
+// ==========================================
+// Text messaging — Live API first, REST fallback
 // ==========================================
 export async function sendTextMessage(text: string): Promise<void> {
   onTranscript?.(text, 'user');
 
-  // Try WebSocket first
-  if (ws && isConnected && isSetupComplete) {
+  // Wait up to 8 seconds for Live API setup
+  const liveReady = await waitForSetup(8000);
+
+  if (liveReady && ws && isConnected) {
     try {
+      console.log('[Gemini] Sending via LIVE API (voice response)');
       ws.send(JSON.stringify({
         clientContent: {
           turns: [{ role: 'user', parts: [{ text }] }],
           turnComplete: true,
         },
       }));
+      // Response comes back as audio via onmessage handler
       return;
-    } catch {
-      // Fall through to REST
+    } catch (e) {
+      console.warn('[Gemini] WebSocket send failed, using REST:', e);
     }
   }
 
-  // REST fallback — always works
-  console.log('[Gemini] Using REST API for text message');
+  // REST fallback only if Live API truly failed
+  console.log('[Gemini] Live API not available — using REST + TTS fallback');
   const response = await sendViaRest(text);
   onTranscript?.(response, 'assistant');
 
-  // Speak the response using expo-speech
   try {
     const Speech = require('expo-speech');
     const chars = require('../constants/characters');
@@ -284,22 +307,32 @@ export async function sendTextMessage(text: string): Promise<void> {
       pitch: character?.voiceConfig?.pitch || 1.0,
       rate: character?.voiceConfig?.rate || 1.0,
     });
-  } catch {
-    // speech not available
-  }
+  } catch {}
 }
 
 // ==========================================
-// Context updates (lightweight, via REST)
+// Context updates — via Live API when available
 // ==========================================
-export function sendContextUpdate(stats: RunStats, extraContext?: string): void {
-  // Only send via REST to avoid burning WebSocket bandwidth
-  const msg = `[STATS: ${(stats.distance / 1000).toFixed(2)}km, Pace: ${fmtPace(stats.currentPace)}/km, Avg: ${fmtPace(stats.averagePace)}/km, ${Math.floor(stats.duration / 60)}:${Math.floor(stats.duration % 60).toString().padStart(2, '0')}, ${stats.cadence}spm${extraContext ? ' | ' + extraContext : ''}] If worth mentioning, say it briefly. Otherwise reply "ok".`;
+export async function sendContextUpdate(stats: RunStats, extraContext?: string): Promise<void> {
+  const msg = `[STATS: ${(stats.distance / 1000).toFixed(2)}km, Pace: ${fmtPace(stats.currentPace)}/km, Avg: ${fmtPace(stats.averagePace)}/km, ${Math.floor(stats.duration / 60)}:${Math.floor(stats.duration % 60).toString().padStart(2, '0')}, ${stats.cadence}spm${extraContext ? ' | ' + extraContext : ''}] If noteworthy, comment briefly. Otherwise stay silent.`;
 
+  // Prefer Live API for context updates too (gets voice responses)
+  if (isSetupComplete && ws && isConnected) {
+    try {
+      ws.send(JSON.stringify({
+        clientContent: {
+          turns: [{ role: 'user', parts: [{ text: msg }] }],
+          turnComplete: true,
+        },
+      }));
+      return;
+    } catch {}
+  }
+
+  // REST fallback
   sendViaRest(msg).then((response) => {
     if (response.toLowerCase().trim() !== 'ok' && response.length > 5) {
       onTranscript?.(response, 'assistant');
-      // Speak it
       try {
         const Speech = require('expo-speech');
         const chars = require('../constants/characters');
