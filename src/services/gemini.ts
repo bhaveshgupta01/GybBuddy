@@ -2,8 +2,6 @@ import {
   GoogleGenerativeAI,
   GenerativeModel,
   ChatSession,
-  FunctionDeclarationSchemaType,
-  Content,
 } from '@google/generative-ai';
 import { buildSystemPrompt, GEMINI_TOOLS_DESCRIPTION } from '../constants/prompts';
 import { CharacterId, SportMode, RunStats, ChatMessage } from '../types';
@@ -22,7 +20,7 @@ const GEMINI_TOOLS = [
     name: 'get_current_stats',
     description: 'Get the runner\'s current stats including pace, distance, time, speed, elevation, and cadence.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {},
     },
   },
@@ -30,7 +28,7 @@ const GEMINI_TOOLS = [
     name: 'get_route_info',
     description: 'Get info about the current route: next turn direction, distance to next turn, total distance remaining, ETA.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {},
     },
   },
@@ -38,7 +36,7 @@ const GEMINI_TOOLS = [
     name: 'get_split_times',
     description: 'Get pace breakdown for each completed km/mile split.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {},
     },
   },
@@ -46,10 +44,10 @@ const GEMINI_TOOLS = [
     name: 'find_nearby_places',
     description: 'Search for nearby places like cafes, restrooms, water fountains, convenience stores, parks.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {
         type: {
-          type: FunctionDeclarationSchemaType.STRING,
+          type: "STRING" as any,
           description: 'Type of place to search for: cafe, water_fountain, restroom, convenience_store, gym, park',
         },
       },
@@ -60,7 +58,7 @@ const GEMINI_TOOLS = [
     name: 'get_weather',
     description: 'Get current weather conditions and short forecast at the runner\'s current location.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {},
     },
   },
@@ -68,10 +66,10 @@ const GEMINI_TOOLS = [
     name: 'web_search',
     description: 'Search the internet for any information — news, sports scores, trivia, restaurant reviews, anything.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {
         query: {
-          type: FunctionDeclarationSchemaType.STRING,
+          type: "STRING" as any,
           description: 'The search query',
         },
       },
@@ -82,7 +80,7 @@ const GEMINI_TOOLS = [
     name: 'get_location_context',
     description: 'Get information about the current neighborhood, nearby landmarks, and points of interest.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {},
     },
   },
@@ -90,18 +88,18 @@ const GEMINI_TOOLS = [
     name: 'generate_route',
     description: 'Generate a new running/walking route. Can create shaped routes (heart, star) or mood-based routes.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {
         shape: {
-          type: FunctionDeclarationSchemaType.STRING,
+          type: "STRING" as any,
           description: 'Optional shape for the route: heart, star, circle',
         },
         distance_km: {
-          type: FunctionDeclarationSchemaType.NUMBER,
+          type: "NUMBER" as any,
           description: 'Target distance in kilometers',
         },
         mood: {
-          type: FunctionDeclarationSchemaType.STRING,
+          type: "STRING" as any,
           description: 'Route mood: flat, scenic, surprise, challenging',
         },
       },
@@ -111,7 +109,7 @@ const GEMINI_TOOLS = [
     name: 'get_training_plan',
     description: 'Get today\'s training plan and overall marathon/race prep progress.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {},
     },
   },
@@ -119,7 +117,7 @@ const GEMINI_TOOLS = [
     name: 'get_achievements',
     description: 'Check recent achievements, upcoming badges, current streak, and XP progress.',
     parameters: {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: "OBJECT" as any,
       properties: {},
     },
   },
@@ -137,7 +135,7 @@ export function initializeGemini(
   const systemPrompt = buildSystemPrompt(sportMode, characterId) + '\n\n' + GEMINI_TOOLS_DESCRIPTION;
 
   model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     systemInstruction: systemPrompt,
     tools: [{ functionDeclarations: GEMINI_TOOLS }],
   });

@@ -5,8 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,14 +15,15 @@ import { useRunTracker } from '../../src/hooks/useRunTracker';
 import { useVoiceChat } from '../../src/hooks/useVoiceChat';
 import { useCoaching } from '../../src/hooks/useCoaching';
 import {
-  initializeGemini,
   registerToolHandlers,
-  disconnectGemini,
-} from '../../src/services/gemini';
+  disconnectLive,
+  sendTextMessage as liveSendText,
+} from '../../src/services/geminiLive';
 import { requestLocationPermissions } from '../../src/services/location';
-import { findNearbyPlaces, getWeather } from '../../src/services/maps';
-import { CharacterId, SportMode } from '../../src/types';
+import { findNearbyPlaces, getWeather, getDirections, generateShapeWaypoints } from '../../src/services/maps';
+import { CharacterId, SportMode, PlannedRoute } from '../../src/types';
 import { formatPace, formatDuration, formatDistance } from '../../src/utils/pace';
+import { haversineDistance } from '../../src/utils/distance';
 import { Colors, FontSize, Spacing, BorderRadius } from '../../src/constants/theme';
 
 export default function ActiveRunScreen() {
@@ -42,6 +41,7 @@ export default function ActiveRunScreen() {
 
   const [chatInput, setChatInput] = useState('');
   const [showChatInput, setShowChatInput] = useState(false);
+  const [plannedRoute, setPlannedRoute] = useState<PlannedRoute | null>(null);
 
   const {
     state: runState,
@@ -57,23 +57,13 @@ export default function ActiveRunScreen() {
   } = useRunTracker(targetPace);
 
   const {
-    messages,
     orbState,
+    isListening,
+    isConnected,
     sendTextMessage,
-    requestGreeting,
-    requestSummary,
-    speakMessage,
-    stopSpeaking,
+    toggleMicrophone,
     latestMessage,
-  } = useVoiceChat(characterId);
-
-  // Coaching callback
-  const handleCoachMessage = useCallback(
-    (message: string) => {
-      speakMessage(message);
-    },
-    [speakMessage]
-  );
+  } = useVoiceChat(characterId, initialSportMode);
 
   useCoaching({
     stats,
@@ -81,17 +71,42 @@ export default function ActiveRunScreen() {
     targetPace,
     isActive: runState === 'active',
     currentLocation,
-    onCoachMessage: handleCoachMessage,
   });
+
+  // Off-route detection + rerouting
+  useEffect(() => {
+    if (!currentLocation || !plannedRoute || runState !== 'active') return;
+
+    // Check if runner is off-route (>50m from nearest polyline point)
+    const minDist = plannedRoute.polyline.reduce((min, point) => {
+      const dist = haversineDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        point.latitude,
+        point.longitude
+      );
+      return Math.min(min, dist);
+    }, Infinity);
+
+    if (minDist > 50) {
+      // Send reroute suggestion via voice
+      liveSendText(
+        `[REROUTE ALERT: Runner is ${Math.round(minDist)}m off the planned route. ` +
+        `Ask them if they want to be rerouted back, or if they want to freestyle.] `
+      );
+    }
+  }, [currentLocation, plannedRoute, runState]);
 
   // Initialize on mount
   useEffect(() => {
     const init = async () => {
-      await requestLocationPermissions();
+      const hasPermission = await requestLocationPermissions();
+      if (!hasPermission) {
+        console.warn('Location permission denied');
+      }
       setSportMode(initialSportMode);
-      initializeGemini(initialSportMode, characterId);
 
-      // Register tool handlers
+      // Register tool handlers for Gemini Live
       registerToolHandlers({
         get_current_stats: async () => ({
           distance_km: (stats.distance / 1000).toFixed(2),
@@ -102,9 +117,19 @@ export default function ActiveRunScreen() {
           elevation_gain: Math.round(stats.elevationGain) + 'm',
           calories: stats.calories,
         }),
-        get_route_info: async () => ({
-          message: 'No planned route set. Running freely.',
-        }),
+        get_route_info: async () => {
+          if (!plannedRoute) return { message: 'No planned route. Running freely.' };
+          if (!currentLocation) return { message: 'Location unavailable.' };
+
+          // Find the nearest upcoming step
+          const remaining = plannedRoute.totalDistance - stats.distance;
+          return {
+            total_distance: formatDistance(plannedRoute.totalDistance),
+            distance_remaining: formatDistance(Math.max(0, remaining)),
+            next_turn: plannedRoute.steps[0]?.instruction || 'Continue straight',
+            distance_to_turn: plannedRoute.steps[0]?.distance + 'm',
+          };
+        },
         get_split_times: async () => ({
           splits: stats.splits.map((s, i) => ({
             km: i + 1,
@@ -118,62 +143,81 @@ export default function ActiveRunScreen() {
             { lat: currentLocation.latitude, lng: currentLocation.longitude },
             args.type as any
           );
-          return {
-            places: places.map((p) => ({
-              name: p.name,
-              distance: `${p.distance}m away`,
-              rating: p.rating,
-              open: p.isOpen,
-            })),
-          };
+          return { places: places.map((p) => ({ name: p.name, rating: p.rating, open: p.isOpen })) };
         },
         get_weather: async () => {
           if (!currentLocation) return { error: 'Location not available' };
-          const weather = await getWeather(
-            currentLocation.latitude,
-            currentLocation.longitude
-          );
-          return weather || { error: 'Weather data unavailable' };
+          return await getWeather(currentLocation.latitude, currentLocation.longitude) || { error: 'Unavailable' };
         },
         web_search: async (args: { query: string }) => ({
-          message: `Web search for "${args.query}" — this feature requires a search API integration.`,
+          message: `Search for "${args.query}" — search integration pending.`,
         }),
         get_location_context: async () => ({
-          message: currentLocation
-            ? `Currently at ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`
-            : 'Location unavailable',
+          lat: currentLocation?.latitude?.toFixed(4),
+          lng: currentLocation?.longitude?.toFixed(4),
+          message: currentLocation ? 'Location available' : 'Location unavailable',
         }),
-        generate_route: async (args: any) => ({
-          message: `Route generation requested: ${JSON.stringify(args)}. This would generate waypoints and display on the map.`,
-        }),
+        generate_route: async (args: { shape?: string; distance_km?: number; mood?: string }) => {
+          if (!currentLocation) return { error: 'Location not available' };
+
+          const origin = { lat: currentLocation.latitude, lng: currentLocation.longitude };
+          let waypoints: { lat: number; lng: number }[] | undefined;
+
+          if (args.shape) {
+            waypoints = generateShapeWaypoints(origin, args.shape, args.distance_km || 2);
+          }
+
+          const destination = waypoints && waypoints.length > 0
+            ? waypoints[waypoints.length - 1]
+            : { lat: origin.lat + 0.01, lng: origin.lng + 0.01 };
+
+          const route = await getDirections(origin, destination, waypoints?.slice(0, -1));
+          if (route) {
+            if (args.shape) route.shape = args.shape;
+            route.name = args.shape ? `${args.shape} route` : args.mood ? `${args.mood} route` : 'Generated route';
+            setPlannedRoute(route);
+            return {
+              success: true,
+              name: route.name,
+              distance: formatDistance(route.totalDistance),
+              duration: formatDuration(route.estimatedDuration),
+              message: `Route generated! ${route.name} - ${formatDistance(route.totalDistance)}`,
+            };
+          }
+          return { error: 'Could not generate route. Try a different shape or distance.' };
+        },
         get_training_plan: async () => ({
-          message: 'No training plan set yet. Ask the user if they want to create one!',
+          message: 'No training plan set. Ask user if they want to create one!',
         }),
         get_achievements: async () => ({
           total_distance: formatDistance(stats.distance),
-          message: 'Achievement system coming soon!',
+          message: 'Achievement tracking active.',
         }),
       });
 
-      // Start the run and get a greeting
+      // Start the run
       startRun();
+
+      // Send greeting after countdown
       setTimeout(() => {
-        requestGreeting(initialSportMode);
-      }, 3500); // After countdown
+        if (isConnected) {
+          liveSendText("Hey! I just started my workout. Let's go!");
+        }
+      }, 4000);
     };
 
     init();
 
     return () => {
-      disconnectGemini();
+      disconnectLive();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOrbPress = () => {
     if (orbState === 'speaking') {
-      stopSpeaking();
+      // Could stop playback
     } else {
-      setShowChatInput(!showChatInput);
+      toggleMicrophone();
     }
   };
 
@@ -185,9 +229,13 @@ export default function ActiveRunScreen() {
     }
   };
 
-  const handleFinish = async () => {
+  const handleFinish = () => {
     finishRun();
-    await requestSummary(stats);
+    liveSendText(
+      `[RUN COMPLETE] Final: ${formatDistance(stats.distance)}, ` +
+      `${formatDuration(stats.duration)}, Avg ${formatPace(stats.averagePace)}/km. ` +
+      `Give a fun post-run debrief!`
+    );
   };
 
   const isTreadmill = sportMode === 'treadmill';
@@ -201,6 +249,15 @@ export default function ActiveRunScreen() {
         </View>
       )}
 
+      {/* Connection indicator */}
+      <View style={styles.connectionBar}>
+        <View style={[styles.connectionDot, isConnected ? styles.dotConnected : styles.dotDisconnected]} />
+        <Text style={styles.connectionText}>
+          {isConnected ? 'GymBro connected' : 'Connecting...'}
+        </Text>
+        {isListening && <Text style={styles.micBadge}>🎙️ LIVE</Text>}
+      </View>
+
       {/* Map (hidden on treadmill) */}
       <View style={[styles.mapSection, isTreadmill && styles.mapHidden]}>
         {isTreadmill ? (
@@ -213,7 +270,8 @@ export default function ActiveRunScreen() {
           <RunMap
             currentLocation={currentLocation}
             breadcrumbs={breadcrumbs}
-            showMap={runState === 'active' || runState === 'paused'}
+            route={plannedRoute}
+            showMap={runState === 'active' || runState === 'paused' || runState === 'finished'}
           />
         )}
       </View>
@@ -248,6 +306,16 @@ export default function ActiveRunScreen() {
           latestMessage={latestMessage}
           onPress={handleOrbPress}
         />
+
+        {/* Text chat toggle */}
+        <TouchableOpacity
+          style={styles.textChatToggle}
+          onPress={() => setShowChatInput(!showChatInput)}
+        >
+          <Text style={styles.textChatToggleText}>
+            {showChatInput ? '✕ Close' : '⌨️ Type'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Controls */}
@@ -332,8 +400,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  connectionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    gap: 8,
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dotConnected: {
+    backgroundColor: Colors.success,
+  },
+  dotDisconnected: {
+    backgroundColor: Colors.error,
+  },
+  connectionText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+  },
+  micBadge: {
+    color: Colors.error,
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+  },
   mapSection: {
-    flex: 3.5,
+    flex: 3,
     margin: Spacing.md,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
@@ -363,7 +458,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   statsSection: {
-    flex: 2.5,
+    flex: 2,
     justifyContent: 'center',
   },
   voiceSection: {
@@ -376,6 +471,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
+    width: '100%',
   },
   chatInput: {
     flex: 1,
@@ -395,6 +491,15 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: Colors.text,
     fontWeight: '700',
+  },
+  textChatToggle: {
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+  },
+  textChatToggleText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
   },
   controls: {
     paddingHorizontal: Spacing.md,

@@ -2,20 +2,38 @@ import * as Location from 'expo-location';
 import { GpsPoint } from '../types';
 
 let locationSubscription: Location.LocationSubscription | null = null;
+let permissionGranted = false;
 
 export async function requestLocationPermissions(): Promise<boolean> {
-  const { status: foreground } = await Location.requestForegroundPermissionsAsync();
-  if (foreground !== 'granted') return false;
+  try {
+    const { status: foreground } = await Location.requestForegroundPermissionsAsync();
+    if (foreground !== 'granted') {
+      permissionGranted = false;
+      return false;
+    }
 
-  const { status: background } = await Location.requestBackgroundPermissionsAsync();
-  // Background is nice to have but not required
-  return foreground === 'granted';
+    permissionGranted = true;
+
+    // Background permission — nice to have, don't crash if denied
+    try {
+      await Location.requestBackgroundPermissionsAsync();
+    } catch {
+      // Background location not available in Expo Go, that's fine
+    }
+
+    return true;
+  } catch (error) {
+    console.warn('Location permission request failed:', error);
+    permissionGranted = false;
+    return false;
+  }
 }
 
 export async function getCurrentLocation(): Promise<GpsPoint | null> {
+  if (!permissionGranted) return null;
   try {
     const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.BestForNavigation,
+      accuracy: Location.Accuracy.High,
     });
     return locationToGpsPoint(location);
   } catch {
@@ -27,19 +45,26 @@ export function startLocationTracking(
   onLocation: (point: GpsPoint) => void,
   intervalMs: number = 1000
 ): void {
+  if (!permissionGranted) {
+    console.warn('Cannot start location tracking — permission not granted');
+    return;
+  }
+
   stopLocationTracking();
 
   Location.watchPositionAsync(
     {
-      accuracy: Location.Accuracy.BestForNavigation,
+      accuracy: Location.Accuracy.High,
       timeInterval: intervalMs,
-      distanceInterval: 1, // minimum 1 meter
+      distanceInterval: 1,
     },
     (location) => {
       onLocation(locationToGpsPoint(location));
     }
   ).then((sub) => {
     locationSubscription = sub;
+  }).catch((error) => {
+    console.warn('Location tracking failed:', error);
   });
 }
 
