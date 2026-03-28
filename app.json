@@ -1,30 +1,69 @@
 {
   "expo": {
-    "name": "GymBroApp",
-    "slug": "GymBroApp",
+    "name": "GymBro",
+    "slug": "GymBro",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "scheme": "gymbro",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1a1a2e"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gymbro.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "GymBro needs your location to track your runs and provide real-time coaching.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GymBro needs background location access to track your runs even when the app is in the background.",
+        "NSMicrophoneUsageDescription": "GymBro needs microphone access for voice conversations with your AI running buddy.",
+        "NSMotionUsageDescription": "GymBro uses motion sensors to detect your activity and provide accurate step counting."
+      },
+      "config": {
+        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1a1a2e",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "package": "com.gymbro.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "RECORD_AUDIO",
+        "ACTIVITY_RECOGNITION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "GymBro needs your location to track runs and provide coaching."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "GymBro uses motion data for step counting and activity detection."
+        }
+      ]
+    ]
   }
 }
