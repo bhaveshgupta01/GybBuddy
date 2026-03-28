@@ -155,14 +155,6 @@ export function connectLive(
         tools: [{ functionDeclarations: GEMINI_TOOLS_DECL }],
         outputAudioTranscription: {},
         inputAudioTranscription: {},
-        realtimeInputConfig: {
-          automaticActivityDetection: {
-            startOfSpeechSensitivity: 'HIGH',
-            endOfSpeechSensitivity: 'MEDIUM',
-            prefixPaddingMs: 100,
-            silenceDurationMs: 1000,
-          },
-        },
       },
     }));
   };
@@ -222,8 +214,9 @@ export function connectLive(
     isConnected = false;
   };
 
-  ws.onclose = () => {
-    console.log('[GeminiLive] WebSocket closed');
+  ws.onclose = (event: any) => {
+    const reason = event?.reason || event?.message || 'unknown';
+    console.log(`[GeminiLive] WebSocket closed — code: ${event?.code}, reason: ${reason}`);
     isConnected = false;
     isSetupComplete = false;
   };
