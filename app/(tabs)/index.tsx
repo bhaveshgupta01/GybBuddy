@@ -56,7 +56,7 @@ export default function HomeScreen() {
     const routeOption = ROUTE_OPTIONS.find((r) => r.label === selectedRoute);
 
     router.push({
-      pathname: '/run/[id]',
+      pathname: '/prepare/[id]',
       params: {
         id: `run_${Date.now()}`,
         character: selectedCharacter,

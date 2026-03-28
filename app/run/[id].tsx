@@ -36,6 +36,7 @@ export default function ActiveRunScreen() {
     routeShape: string;
     routeDistance: string;
     routeMood: string;
+    preGeneratedRoute: string;
   }>();
   const router = useRouter();
 
@@ -145,29 +146,19 @@ export default function ActiveRunScreen() {
         get_achievements: async () => ({ total_distance: formatDistance(stats.distance) }),
       });
 
+      // Load pre-generated route from prepare screen
+      if (params.preGeneratedRoute) {
+        try {
+          const preRoute = JSON.parse(params.preGeneratedRoute);
+          setPlannedRoute(preRoute);
+        } catch {}
+      }
+
       startRun();
 
-      // Auto-generate route if selected on home screen
-      setTimeout(async () => {
-        if (isConnected) liveSendText("Hey! Just started my workout. Let's go!");
-
-        const shape = params.routeShape;
-        const distance = parseFloat(params.routeDistance || '0');
-        const mood = params.routeMood;
-
-        if ((shape || mood) && currentLocation) {
-          const origin = { lat: currentLocation.latitude, lng: currentLocation.longitude };
-          let waypoints: { lat: number; lng: number }[] | undefined;
-          if (shape) waypoints = generateShapeWaypoints(origin, shape, distance || 2);
-          const dest = waypoints?.length ? waypoints[waypoints.length - 1] : { lat: origin.lat + 0.01, lng: origin.lng + 0.01 };
-          const route = await getDirections(origin, dest, waypoints?.slice(0, -1));
-          if (route) {
-            if (shape) route.shape = shape;
-            route.name = shape ? `${shape} route` : `${mood} route`;
-            setPlannedRoute(route);
-          }
-        }
-      }, 5000);
+      setTimeout(() => {
+        liveSendText("Hey! Just started my workout. Let's go!");
+      }, 4000);
     };
     init();
     return () => { disconnectLive(); };

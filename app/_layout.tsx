@@ -16,10 +16,17 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
-          name="run/[id]"
+          name="prepare/[id]"
           options={{
             gestureEnabled: false,
             animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen
+          name="run/[id]"
+          options={{
+            gestureEnabled: false,
+            animation: 'fade',
           }}
         />
       </Stack>
