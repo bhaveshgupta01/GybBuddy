@@ -28,11 +28,10 @@ export function useVoiceChat(
   const [isListening, setIsListening] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const messageIdRef = useRef(0);
+  const connectedOnceRef = useRef(false);
 
   const addMessage = useCallback((role: 'user' | 'assistant', content: string) => {
-    // Don't add empty or stats-only messages
-    if (!content.trim() || content.startsWith('[STATS UPDATE')) return;
-
+    if (!content.trim() || content.startsWith('[STATS')) return;
     const msg: ChatMessage = {
       id: `msg_${++messageIdRef.current}`,
       role,
@@ -42,17 +41,17 @@ export function useVoiceChat(
     setMessages((prev) => [...prev, msg]);
   }, []);
 
-  // Connect to Gemini Live API
-  const connect = useCallback(() => {
+  // Connect ONCE on mount — no dependencies that change
+  useEffect(() => {
+    if (connectedOnceRef.current) return;
+    connectedOnceRef.current = true;
+
     connectLive(sportMode, characterId, {
       onTranscript: (text, role) => {
         addMessage(role, text);
         if (role === 'assistant') {
           setOrbState('speaking');
-          // Reset to idle/listening after a short delay
-          setTimeout(() => {
-            setOrbState(isListening ? 'listening' : 'idle');
-          }, 2000);
+          setTimeout(() => setOrbState('idle'), 3000);
         }
       },
       onAudioResponse: () => {
@@ -60,33 +59,21 @@ export function useVoiceChat(
       },
       onConnectionChange: (connected) => {
         setIsConnected(connected);
-        if (connected) {
-          setOrbState('idle');
-        }
       },
       onError: (error) => {
         console.error('[VoiceChat] Error:', error);
-        setOrbState('idle');
       },
     });
-  }, [sportMode, characterId, addMessage, isListening]);
 
-  // Initialize connection on mount
-  useEffect(() => {
-    connect();
     return () => {
       disconnectLive();
     };
-  }, [connect]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendTextMessage = useCallback((text: string) => {
-    if (!isLiveConnected()) {
-      addMessage('assistant', "Connecting to your buddy... try again in a sec!");
-      return;
-    }
     setOrbState('thinking');
     liveSendText(text);
-  }, [addMessage]);
+  }, []);
 
   const toggleMicrophone = useCallback(async () => {
     if (isListening) {
@@ -101,13 +88,6 @@ export function useVoiceChat(
   }, [isListening]);
 
   const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopMicrophone();
-    };
-  }, []);
 
   return {
     messages,
