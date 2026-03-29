@@ -412,11 +412,11 @@ function startAudioStreaming(): void {
       // Stop current recording to get the file
       if (recording) {
         const uri = recording.getURI();
-        await recording.stopAndUnloadAsync();
+        try { await recording.stopAndUnloadAsync(); } catch {}
 
         // Read and send the recorded chunk
         if (uri) {
-          const data = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+          const data = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
           if (data && data.length > 100) {
             ws!.send(JSON.stringify({
               realtimeInput: {
@@ -467,7 +467,7 @@ export async function stopMicrophone(): Promise<void> {
       const uri = recording.getURI();
       await recording.stopAndUnloadAsync();
       if (uri && ws && isConnected && isSetupComplete) {
-        const data = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        const data = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
         if (data && data.length > 100) {
           ws.send(JSON.stringify({ realtimeInput: { audio: { data, mimeType: 'audio/mp4' } } }));
         }
@@ -489,7 +489,7 @@ async function playCollectedAudio(): Promise<void> {
     const allAudio = audioQueue.splice(0, audioQueue.length).join('');
     const wavB64 = pcmToWav(allAudio, 24000);
     const uri = FileSystem.cacheDirectory + `gemini_${Date.now()}.wav`;
-    await FileSystem.writeAsStringAsync(uri, wavB64, { encoding: FileSystem.EncodingType.Base64 });
+    await FileSystem.writeAsStringAsync(uri, wavB64, { encoding: 'base64' as any });
 
     await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
     const { sound } = await Audio.Sound.createAsync({ uri });
