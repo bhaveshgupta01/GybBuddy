@@ -159,9 +159,24 @@ export function connectLive(
     }));
   };
 
-  ws.onmessage = async (event) => {
+  ws.onmessage = async (event: any) => {
     try {
-      const data = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
+      // React Native WebSocket may deliver data as string, Blob, or ArrayBuffer
+      let raw = event.data;
+      if (typeof raw !== 'string') {
+        console.log('[GeminiLive] Message type:', typeof raw, raw?.constructor?.name);
+      }
+      if (typeof raw !== 'string') {
+        // If it's a Blob, convert to text
+        if (raw && typeof raw.text === 'function') {
+          raw = await raw.text();
+        } else if (raw instanceof ArrayBuffer) {
+          raw = new TextDecoder().decode(raw);
+        } else {
+          raw = String(raw);
+        }
+      }
+      const data = JSON.parse(raw);
 
       if (data.setupComplete) {
         console.log('[GeminiLive] ✅ Setup complete — LIVE VOICE READY');
