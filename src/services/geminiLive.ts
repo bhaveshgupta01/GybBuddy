@@ -125,6 +125,8 @@ export function connectLive(
 
   try {
     ws = new WebSocket(WS_URL);
+    // Force text mode so onmessage delivers strings, not Blobs
+    ws.binaryType = 'blob'; // RN default, but let's also handle in onmessage
   } catch (e) {
     console.error('[GeminiLive] WebSocket create failed:', e);
     isConnected = false;
@@ -159,25 +161,33 @@ export function connectLive(
     }));
   };
 
-  ws.onmessage = async (event: any) => {
-    try {
-      // React Native WebSocket may deliver data as string, Blob, or ArrayBuffer
-      let raw = event.data;
-      if (typeof raw !== 'string') {
-        console.log('[GeminiLive] Message type:', typeof raw, raw?.constructor?.name);
+  ws.onmessage = (event: any) => {
+    const processMessage = (text: string) => {
+      try {
+        const data = JSON.parse(text);
+        handleServerMessage(data);
+      } catch (e) {
+        // Not valid JSON — likely a binary audio frame, ignore
       }
-      if (typeof raw !== 'string') {
-        // If it's a Blob, convert to text
-        if (raw && typeof raw.text === 'function') {
-          raw = await raw.text();
-        } else if (raw instanceof ArrayBuffer) {
-          raw = new TextDecoder().decode(raw);
-        } else {
-          raw = String(raw);
-        }
-      }
-      const data = JSON.parse(raw);
+    };
 
+    const raw = event.data;
+    if (typeof raw === 'string') {
+      processMessage(raw);
+    } else if (raw && typeof raw === 'object') {
+      // Blob in React Native — use FileReader
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          processMessage(reader.result);
+        }
+      };
+      reader.readAsText(raw);
+    }
+  };
+
+  async function handleServerMessage(data: any) {
+    try {
       if (data.setupComplete) {
         console.log('[GeminiLive] ✅ Setup complete — LIVE VOICE READY');
         isSetupComplete = true;
@@ -186,7 +196,7 @@ export function connectLive(
       }
 
       if (data.toolCall) {
-        await handleToolCall(data.toolCall);
+        handleToolCall(data.toolCall);
         return;
       }
 
