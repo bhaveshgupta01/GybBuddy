@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, ChatSession } from '@google/generative-ai';
 import { buildSystemPrompt } from '../constants/prompts';
 import { CharacterId, SportMode, RunStats } from '../types';
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY';
 const WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`;
