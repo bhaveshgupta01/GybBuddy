@@ -380,10 +380,29 @@ export async function startMicrophone(): Promise<void> {
       staysActiveInBackground: false,
     });
 
-    // Use HIGH_QUALITY preset then override — avoids iOS format errors
-    const { recording: rec } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
+    // Record as PCM 16kHz mono — required by Gemini Live API
+    const { recording: rec } = await Audio.Recording.createAsync({
+      isMeteringEnabled: false,
+      android: {
+        extension: '.wav',
+        outputFormat: 1, // DEFAULT
+        audioEncoder: 1, // DEFAULT
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        bitRate: 256000,
+      },
+      ios: {
+        extension: '.caf',
+        audioQuality: 96, // MEDIUM
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        bitRate: 256000,
+        linearPCMBitDepth: 16,
+        linearPCMIsBigEndian: false,
+        linearPCMIsFloat: false,
+      },
+      web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
+    });
 
     recording = rec;
     console.log('[GeminiLive] Microphone started');
@@ -420,7 +439,7 @@ function startAudioStreaming(): void {
           if (data && data.length > 100) {
             ws!.send(JSON.stringify({
               realtimeInput: {
-                audio: { data, mimeType: 'audio/mp4' },
+                audio: { data, mimeType: 'audio/pcm;rate=16000' },
               },
             }));
           }
@@ -434,9 +453,19 @@ function startAudioStreaming(): void {
       if (!isRecording) return;
 
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording: newRec } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      const { recording: newRec } = await Audio.Recording.createAsync({
+        isMeteringEnabled: false,
+        android: {
+          extension: '.wav', outputFormat: 1, audioEncoder: 1,
+          sampleRate: 16000, numberOfChannels: 1, bitRate: 256000,
+        },
+        ios: {
+          extension: '.caf', audioQuality: 96, sampleRate: 16000,
+          numberOfChannels: 1, bitRate: 256000, linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false, linearPCMIsFloat: false,
+        },
+        web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
+      });
       recording = newRec;
 
       // Wait 2 seconds then send this chunk and start next
@@ -469,7 +498,7 @@ export async function stopMicrophone(): Promise<void> {
       if (uri && ws && isConnected && isSetupComplete) {
         const data = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
         if (data && data.length > 100) {
-          ws.send(JSON.stringify({ realtimeInput: { audio: { data, mimeType: 'audio/mp4' } } }));
+          ws.send(JSON.stringify({ realtimeInput: { audio: { data, mimeType: 'audio/pcm;rate=16000' } } }));
         }
         try { await FileSystem.deleteAsync(uri, { idempotent: true }); } catch {}
       }
